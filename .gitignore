@@ -1,5 +1,5 @@
 # Manual additions
-clean_data/
+train_clean.pkl
 
 
 # Byte-compiled / optimized / DLL files
