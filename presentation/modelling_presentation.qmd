@@ -1,0 +1,447 @@
+---
+title: "Rossmann sales prediction"
+author: "Filip Šajtlava, Vojtěch Andrle"
+jupyter: m9dm2_project
+date: "today"
+format:
+    html:
+        toc: true
+        code-fold: true
+        code-tools:
+            source: true
+            toggle: true
+            caption: "Show the code"
+        code-summary: "Show the code"
+        css: styles.css
+theme:
+    light: flatly
+#highlight-style: github
+---
+
+```{python}
+#| include: false
+#| 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import lightgbm as lgb
+import shap
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.tree import plot_tree
+import warnings
+import itertools
+import gc
+
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Embedding, Flatten, Dense, Concatenate, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.preprocessing import StandardScaler
+
+
+vir_col = plt.get_cmap("viridis")
+plt.style.use("ggplot")
+plt.rcParams['text.color'] = 'black'
+plt.rcParams['axes.labelcolor'] = 'black'
+plt.rcParams['xtick.color'] = 'black'
+plt.rcParams['ytick.color'] = 'black'
+plt.rcParams['axes.edgecolor'] = 'black'
+```
+
+# 1 Model Selection
+
+We compare three models in our analysis:
+
+i. **Random Forests**,
+ii. **LightGBM**,
+iii. **Neural Networks**.
+
+To evaluate their performance, we use the Root Mean Squared Percentage Error ($\text{RMSPE}$), defined as:
+$$ \text{RMSPE}(\mathbf{y}, \mathbf{\widehat{y}}) = \sqrt{\frac{1}{n} \sum_{i=1}^n \left( \frac{y_i - \widehat{y}_i}{y_i} \right)^2}$$
+
+The best achieved performance on this dataset was $\text{RMSPE} \approx 0.10$. We keep this benchmark in mind when comparing our own models.
+
+## 1.1 Data Preparation (again)
+
+Due to autocorrelation, it is useful to include recent sales information (along with their corresponding dummy availability variables):
+
+- $SalesLag1$
+- $SalesLag2$
+- $RollingMean7$
+
+These allow us to have the model look back at the sales in the near past, possibly strengthening the prediction.
+
+
+The original dataset on [Kaggle.com](https://www.kaggle.com/c/rossmann-store-sales) included both training and testing data, but since the official competition ended a decade ago, the actual true testing outcomes $\mathbf{y}$ $(Sales)$ are not available. For this reason, we split the data ourselves, with the test data having approximately 6 weeks (consistent with the length of the original competition’s test period).
+
+```{python}
+
+dataset = pd.read_pickle("../train_clean.pkl")
+
+# Due to autocorrelation surfacing in the visualization part, we"re going to add 
+# lag and rolling mean
+
+dataset = dataset.sort_values(by=["Store", "Date"]).reset_index(drop=True)
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    dataset["SalesLag1"] = dataset.groupby("Store")["Sales"].shift(1)
+    dataset["SalesLag7"] = dataset.groupby("Store")["Sales"].shift(7)
+
+    dataset["RollingMean7"] = dataset.groupby("Store")["Sales"].rolling(7).mean().shift(1).reset_index(level=0, drop=True)
+    first_idx_per_store = dataset.groupby("Store").head(1).index
+    dataset.loc[first_idx_per_store, "RollingMean7"] = float("nan")
+
+    dataset["SalesLag1Available"] = ~dataset["SalesLag1"].isna() * 1
+    dataset["SalesLag7Available"] = ~dataset["SalesLag7"].isna() * 1
+    dataset["RollingMean7Available"] = ~dataset["RollingMean7"].isna() * 1
+
+    dataset.loc[:, dataset.isna().sum() != 0] = dataset.loc[:, dataset.isna().sum() != 0].fillna(0)
+
+
+
+    ### Split the dataset into 3 disjunct sets
+    days_amount = (dataset.Date.iloc[-1,] - dataset.Date.iloc[0,])
+    print("The entire dataset is", days_amount.days, "days long")
+
+    # We will do 90-5-5 split to align with the original kaggle prediction expectations
+
+    # Gets the last date information and goes back around 5% of the dataset (the -1 corrects from sunday to monday)
+    test_split_time = dataset.Date.iloc[-1,] - pd.Timedelta(days=int(days_amount.days*0.05 - 1))
+    # Same for the validation data
+    validation_split_time = dataset.Date.iloc[-1,] - pd.Timedelta(days=int(days_amount.days*0.1 + 1))
+
+    train_set = dataset[dataset.Date < validation_split_time]
+    validation_set = dataset[(dataset.Date >= validation_split_time) & (dataset.Date < test_split_time)]
+    test_set = dataset[dataset.Date >= test_split_time]
+
+    newly_created_sets = ((train_set, "training set"), (validation_set, "validation set"), (test_set, "testing set"))
+
+    # Check if the division went well
+    for data_partition, name in newly_created_sets:
+        display(data_partition.Date.iloc[[-1,0],])
+        print(f"The {name} makes up {data_partition.shape[0] * 100 / dataset.shape[0]:.2f} % of the dataset")
+
+
+    holiday_map = {"0": 0, "a": 1, "b": 2, "c": 3}
+    storetype_map = {"a": 0, "b": 1, "c": 2, "d": 3}
+    assortment_map = {"a": 0, "b": 1, "c": 2}
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for df in (train_set, validation_set, test_set):
+            df["StateHoliday"] = df["StateHoliday"].map(holiday_map).astype(int)
+            df["StoreType"] = df["StoreType"].map(storetype_map).astype(int)
+            df["Assortment"] = df["Assortment"].map(assortment_map).astype(int)
+```
+
+```{python}
+train_set_open = train_set.loc[train_set.Open == 1, :]
+validation_set_open = validation_set.loc[validation_set.Open == 1, :]
+test_set_open = test_set.loc[test_set.Open == 1, :]
+
+def rmspe(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    non_zero_idx = y_true != 0
+    return np.sqrt(np.mean(((y_true[non_zero_idx] - y_pred[non_zero_idx]) / y_true[non_zero_idx])**2))
+
+dataset.loc[dataset.Store == 1, :].head(5)
+```
+
+## 1.2 Modeling Approach
+
+The true testing set is missing not only the target $Sales$ but also the customer count. One option would be to model $Sales$
+directly and let the model accurately predict customer effect. In our approach however, we model the customers individually first, and only after getting the customers values, predict the true sales with a $Sales$ model that utilizes customer count.
+
+
+::: {#fig-model-flowchart fig-cap="Basic flowchart of the modeling process" fig-align="center"}
+```{mermaid}
+flowchart TB
+    T(Test set)
+
+    subgraph CUSTOMERS[Customer Part]
+    A(Fit a customers only model) 
+    D(Validation set)
+    D -.-> |validate|A
+    A -.-> |train|D(Validation set)
+    A --> E([Model selected])
+    end
+
+    subgraph SALES[Sales Part]
+    B("Fit a sales model")
+    DD -.-> |validate|B
+    B -.-> |train|DD(Validation set)
+    B --> G([Model selected])
+    E --> |Add the customers to the test set| T
+    end
+    G --> |"Predict the sales"| I
+    T --> I([Sales RMSPE])
+    E --> |Predict the customers| H([Customers RMSPE])
+    T --> H
+
+    style G fill:#228C8D
+    style E fill:#228C8D
+    style A fill:#33628D,color:#FFF 
+    style B fill:#33628D,color:#FFF
+    style I fill:#31B57B
+    style H fill:#31B57B
+    style DD fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+    style D fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+    style T fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+```
+:::
+Next, we need to incorporate the lag features. The main problem is that these values are not known in advance, so the $Sales$ model cannot be applied on the entire dataset at once. 
+
+To solve this issue, we can use the $Sales$ model recursively, adding a single observation of sales and updating the lag features and rolling averages accordingly.
+
+The main problems:
+
+- Modeling sales based on predicted values ($Customers$)
+- Recursive modeling using lags and rolling mean - propagating the error and compounding innacuracies.
+
+# 2 Random Forests
+
+![Schema of bootstrap aggregating](images/tikz_bagging.png){#fig-static-image}
+
+# 2.1 Naive Modeling
+
+We can try and compare the naive approach (modeling the $Sales$ without the customers) and the customers + recursion approach.
+
+```{python}
+ignore_cols = ["Sales", "Customers", "Date"] 
+lag_cols = ["SalesLag1", "SalesLag7", "RollingMean7", "SalesLag1Available", "SalesLag7Available", "RollingMean7Available"]
+
+cols_to_select = [col for col in train_set_open.columns if col not in ignore_cols and col not in lag_cols]
+
+x_train_naive = train_set_open.loc[:, cols_to_select]
+y_train_naive = train_set_open.loc[:, "Sales"]
+
+x_val_naive = validation_set_open.loc[:, cols_to_select]
+y_val_naive = validation_set_open.loc[:, "Sales"]
+
+def grid_search(param_grid, model_type, x_train, y_train, x_val, y_val, n_jobs, verbose = False):
+    keys, values = zip(*param_grid.items())
+    param_combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+    results_data = []
+
+    for i, params in enumerate(param_combinations):
+        model = model_type(
+            **params,
+            random_state=42,
+            n_jobs=n_jobs,
+            verbose=0
+        )
+
+        model.fit(x_train, y_train)
+
+        y_train_predicted = model.predict(x_train)
+        y_val_predicted = model.predict(x_val)
+        
+        mse_train = mean_squared_error(y_train, y_train_predicted)
+        rmse_train = mse_train ** 0.5
+        r2_train = r2_score(y_train, y_train_predicted)
+        rmspe_train = rmspe(y_train, y_train_predicted)
+
+        mse_val = mean_squared_error(y_val, y_val_predicted)
+        rmse_val = mse_val ** 0.5
+        r2_val = r2_score(y_val, y_val_predicted)
+        rmspe_val = rmspe(y_val, y_val_predicted)
+
+        results_entry = params.copy()
+        results_entry["Train_RMSPE"] = rmspe_train
+        results_entry["Val_RMSPE"] = rmspe_val
+
+        results_data.append(results_entry)
+
+        if verbose:
+            print(f"==== TRAINING ==== ({i+1}/{len(param_combinations)})")
+            print(f"Train RMSE: {rmse_train:.2f}")
+            print(f"Train R²: {r2_train:.3f}")
+            print(f"Train RMSPE: {rmspe_train:.4f} ({rmspe_train*100:.2f}%)")
+            print("==== TRAINING ====")
+            print()
+
+            print(f"==== VALIDATION ==== ({i+1}/{len(param_combinations)})")
+            print(f"Validation RMSE: {rmse_val:.2f}")
+            print(f"Validation R²: {r2_val:.3f}")
+            print(f"Validation RMSPE: {rmspe_val:.4f} ({rmspe_val*100:.2f}%)")
+            print("==== VALIDATION ====")
+        else:
+            print(f"({i+1}/{len(param_combinations)})")
+
+    results_df = pd.DataFrame(results_data)
+    results_df = results_df.sort_values(by="Val_RMSPE", ascending=True)
+
+    if verbose:
+        display(results_df.head(5))
+
+    return results_df
+```
+
+For tuning hyperparameters we will utilize a simple grid-search approach, comparing the training and validation RMSPE errors and selecting the ideal model with the smallest ones.
+
+```{python}
+#| eval: false
+#| echo: true
+#| code-fold: false
+param_grid_naive = {
+    "n_estimators": [100, 200],
+    "max_depth": [50, None],
+    "max_samples": [0.6, 0.8, 1],
+    "max_features": [0.5, "sqrt", 1]
+    #"min_samples_split": [2, 5, 10],
+    #"min_samples_leaf": [1, 2, 4]
+}
+
+
+# These models do NOT use the customers to predict the sales
+results_naive = grid_search(param_grid=param_grid_naive,
+                            model_type=RandomForestRegressor,
+                            x_train=x_train_naive,
+                            y_train=y_train_naive,
+                            x_val=x_val_naive,
+                            y_val=y_val_naive,
+                            n_jobs=5)
+```
+
+Best performing models with these parameter combinations:
+```{python}
+#| echo: false
+
+results_naive = pd.read_csv("../outputs/sales_naive_randomforest_grid.csv")
+display(results_naive.head(4))
+```
+
+And the worst ones:
+```{python}
+#| echo: false
+display(results_naive.tail(4))
+```
+
+# 2.2 Recursive Modeling
+
+```{python}
+#| echo: false
+
+results_cust = pd.read_csv("../outputs/customers_recursive_randomforest_grid_small.csv")
+results_sales = pd.read_csv("../outputs/sales_recursive_randomforest_grid_small.csv")
+```
+
+```{python}
+#| eval: false
+cust_ignore_cols = ["Sales", "Customers", "Date"]
+sales_ignore_cols = ["Sales", "Date"]
+lag_cols = ["SalesLag1", "SalesLag7", "RollingMean7", "SalesLag1Available", "SalesLag7Available", "RollingMean7Available"]
+
+cols_to_select_cust = [c for c in train_set_open.columns if c not in cust_ignore_cols and c not in lag_cols]
+cols_to_select_sales = [c for c in train_set_open.columns if c not in sales_ignore_cols]
+
+x_train_cust = train_set_open[cols_to_select_cust]
+y_train_cust = train_set_open.loc[:, "Customers"]
+x_val_cust = validation_set_open[cols_to_select_cust]
+y_val_cust = validation_set_open.loc[:, "Customers"]
+
+x_train_sales = train_set_open[cols_to_select_sales]
+y_train_sales = train_set_open.loc[:, "Sales"]
+x_val_sales = validation_set_open[cols_to_select_sales]
+y_val_sales = validation_set_open.loc[:, "Sales"]
+
+param_grid_cust = {
+    "n_estimators": [50, 100],
+    "max_depth": [10, 25, 50],
+    "max_samples": [0.6, 0.8],
+    "max_features": [0.5, "sqrt"]
+}
+
+results_cust = grid_search(param_grid=param_grid_cust,
+                           model_type=RandomForestRegressor,
+                           x_train=x_train_cust,
+                           y_train=y_train_cust,
+                           x_val=x_val_cust,
+                           y_val=y_val_cust,
+                           n_jobs=5)
+
+param_grid_sales = {
+    "n_estimators": [50, 100],
+    "max_depth": [10, 25, 50],
+    "max_samples": [0.6, 0.8],
+    "max_features": [0.5, "sqrt"]
+}
+
+results_sales = grid_search(param_grid=param_grid_sales,
+                            model_type=RandomForestRegressor,
+                            x_train=x_train_sales,
+                            y_train=y_train_sales,
+                            x_val=x_val_sales,
+                            y_val=y_val_sales,
+                            n_jobs=5)
+```
+
+For the resursive modeling, we need to optimize the hyperparameters of two distinct models. The first one being the classic $Customers$ model:
+
+```{python}
+#| echo: false
+
+BEST_STYLE = f'background-color: #32648e; font-weight: bold; color: white'
+SHOWCASE_STYLE = f'background-color: #21918c; font-weight: bold; color: white'
+
+def apply_style(series, style_css):
+    return [style_css] * len(series)
+
+styled_df = results_cust.head(4).reset_index(drop=True).style
+
+styled_df = styled_df.apply(
+    apply_style, 
+    axis=1, 
+    style_css=BEST_STYLE,
+    subset=([0], slice(None))
+)
+
+styled_df = styled_df.apply(
+    apply_style, 
+    axis=1, 
+    style_css=SHOWCASE_STYLE,
+    subset=([1], slice(None))
+    
+)
+
+display(styled_df)
+```
+
+<br>
+
+<div style="display: flex; gap: 0; padding: 0; margin: 0;">
+  <img src="images/tree_depths_cust_rf_best.png" style="width: 49%; padding: 0; margin: 0; border: none;">
+  <img src="images/tree_depths_cust_rf_showcase.png" style="width: 49%; padding: 0; margin: 0; border: none;">
+</div>
+
+Both of the tables show a very unusual situation, where the training error is actually higher than the validation error. This can happen because the validation set is very small, so the model finds it considerably easier to predict values there, compared to the training set with full yearly seasonality.
+
+```{python}
+#| echo: false
+display(results_cust.tail(4))
+```
+
+![A small slice of the first tree in the forest](images/cust_rf_tree.png){#fig-static-image2}
+
+And the second one being the recursive $Sales$ one. does _not_ change how the model is trained, as the training dataset contains the actual customers and lags.
+
+```{python}
+customers_best_params_rf = pd.read_csv("../outputs/customers_recursive_randomforest_grid_small.csv").iloc[2, 0:4].to_dict()
+sales_best_params_rf = pd.read_csv("../outputs/sales_recursive_randomforest_grid_small.csv").iloc[2, 0:4].to_dict()
+
+for params in (customers_best_params_rf, sales_best_params_rf):
+    params["max_depth"] = int(params["max_depth"])
+    params["max_features"] = float(params["max_features"])
+
+print("Cust", customers_best_params_rf)
+print("Sales", sales_best_params_rf)
+```
+
+
+# 3 Gradient Boosting - LightGBM
+
+# 4 Neural Networks - classic MLP

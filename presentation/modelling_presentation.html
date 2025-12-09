@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Filip Šajtlava, Vojtěch Andrle">
+<meta name="dcterms.date" content="2025-12-09">
+
+<title>Rossmann sales prediction</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="modelling_presentation_files/libs/clipboard/clipboard.min.js"></script>
+<script src="modelling_presentation_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="modelling_presentation_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="modelling_presentation_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="modelling_presentation_files/libs/quarto-html/popper.min.js"></script>
+<script src="modelling_presentation_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="modelling_presentation_files/libs/quarto-html/anchor.min.js"></script>
+<link href="modelling_presentation_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="modelling_presentation_files/libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="modelling_presentation_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="modelling_presentation_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="modelling_presentation_files/libs/bootstrap/bootstrap-c963cad8bd1347d1a852185b92e428da.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="modelling_presentation_files/libs/quarto-diagram/mermaid.min.js"></script>
+<script src="modelling_presentation_files/libs/quarto-diagram/mermaid-init.js"></script>
+<link href="modelling_presentation_files/libs/quarto-diagram/mermaid.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#model-selection" id="toc-model-selection" class="nav-link active" data-scroll-target="#model-selection">1 Model Selection</a>
+  <ul class="collapse">
+  <li><a href="#data-preparation-again" id="toc-data-preparation-again" class="nav-link" data-scroll-target="#data-preparation-again">1.1 Data Preparation (again)</a></li>
+  <li><a href="#modeling-approach" id="toc-modeling-approach" class="nav-link" data-scroll-target="#modeling-approach">1.2 Modeling Approach</a></li>
+  </ul></li>
+  <li><a href="#random-forests" id="toc-random-forests" class="nav-link" data-scroll-target="#random-forests">2 Random Forests</a></li>
+  <li><a href="#naive-modeling" id="toc-naive-modeling" class="nav-link" data-scroll-target="#naive-modeling">2.1 Naive Modeling</a></li>
+  <li><a href="#recursive-modeling" id="toc-recursive-modeling" class="nav-link" data-scroll-target="#recursive-modeling">2.2 Recursive Modeling</a></li>
+  <li><a href="#gradient-boosting---lightgbm" id="toc-gradient-boosting---lightgbm" class="nav-link" data-scroll-target="#gradient-boosting---lightgbm">3 Gradient Boosting - LightGBM</a></li>
+  <li><a href="#neural-networks---classic-mlp" id="toc-neural-networks---classic-mlp" class="nav-link" data-scroll-target="#neural-networks---classic-mlp">4 Neural Networks - classic MLP</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Rossmann sales prediction</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Show the code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">View Source</a></li></ul></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Filip Šajtlava, Vojtěch Andrle </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">December 9, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="model-selection" class="level1">
+<h1>1 Model Selection</h1>
+<p>We compare three models in our analysis:</p>
+<ol type="i">
+<li><strong>Random Forests</strong>,</li>
+<li><strong>LightGBM</strong>,</li>
+<li><strong>Neural Networks</strong>.</li>
+</ol>
+<p>To evaluate their performance, we use the Root Mean Squared Percentage Error (<span class="math inline">\(\text{RMSPE}\)</span>), defined as: <span class="math display">\[ \text{RMSPE}(\mathbf{y}, \mathbf{\widehat{y}}) = \sqrt{\frac{1}{n} \sum_{i=1}^n \left( \frac{y_i - \widehat{y}_i}{y_i} \right)^2}\]</span></p>
+<p>The best achieved performance on this dataset was <span class="math inline">\(\text{RMSPE} \approx 0.10\)</span>. We keep this benchmark in mind when comparing our own models.</p>
+<section id="data-preparation-again" class="level2">
+<h2 class="anchored" data-anchor-id="data-preparation-again">1.1 Data Preparation (again)</h2>
+<p>Due to autocorrelation, it is useful to include recent sales information (along with their corresponding dummy availability variables):</p>
+<ul>
+<li><span class="math inline">\(SalesLag1\)</span></li>
+<li><span class="math inline">\(SalesLag2\)</span></li>
+<li><span class="math inline">\(RollingMean7\)</span></li>
+</ul>
+<p>These allow us to have the model look back at the sales in the near past, possibly strengthening the prediction.</p>
+<p>The original dataset on <a href="https://www.kaggle.com/c/rossmann-store-sales">Kaggle.com</a> included both training and testing data, but since the official competition ended a decade ago, the actual true testing outcomes <span class="math inline">\(\mathbf{y}\)</span> <span class="math inline">\((Sales)\)</span> are not available. For this reason, we split the data ourselves, with the test data having approximately 6 weeks (consistent with the length of the original competition’s test period).</p>
+<div id="8258821c" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Show the code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> pd.read_pickle(<span class="st">"../train_clean.pkl"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Due to autocorrelation surfacing in the visualization part, we"re going to add </span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># lag and rolling mean</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> dataset.sort_values(by<span class="op">=</span>[<span class="st">"Store"</span>, <span class="st">"Date"</span>]).reset_index(drop<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> warnings.catch_warnings():</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    warnings.simplefilter(<span class="st">"ignore"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag1"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].shift(<span class="dv">1</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag7"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].shift(<span class="dv">7</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"RollingMean7"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].rolling(<span class="dv">7</span>).mean().shift(<span class="dv">1</span>).reset_index(level<span class="op">=</span><span class="dv">0</span>, drop<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    first_idx_per_store <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>).head(<span class="dv">1</span>).index</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    dataset.loc[first_idx_per_store, <span class="st">"RollingMean7"</span>] <span class="op">=</span> <span class="bu">float</span>(<span class="st">"nan"</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag1Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"SalesLag1"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag7Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"SalesLag7"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"RollingMean7Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"RollingMean7"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    dataset.loc[:, dataset.isna().<span class="bu">sum</span>() <span class="op">!=</span> <span class="dv">0</span>] <span class="op">=</span> dataset.loc[:, dataset.isna().<span class="bu">sum</span>() <span class="op">!=</span> <span class="dv">0</span>].fillna(<span class="dv">0</span>)</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">### Split the dataset into 3 disjunct sets</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    days_amount <span class="op">=</span> (dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> dataset.Date.iloc[<span class="dv">0</span>,])</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"The entire dataset is"</span>, days_amount.days, <span class="st">"days long"</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># We will do 90-5-5 split to align with the original kaggle prediction expectations</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gets the last date information and goes back around 5% of the dataset (the -1 corrects from sunday to monday)</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    test_split_time <span class="op">=</span> dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> pd.Timedelta(days<span class="op">=</span><span class="bu">int</span>(days_amount.days<span class="op">*</span><span class="fl">0.05</span> <span class="op">-</span> <span class="dv">1</span>))</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Same for the validation data</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    validation_split_time <span class="op">=</span> dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> pd.Timedelta(days<span class="op">=</span><span class="bu">int</span>(days_amount.days<span class="op">*</span><span class="fl">0.1</span> <span class="op">+</span> <span class="dv">1</span>))</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    train_set <span class="op">=</span> dataset[dataset.Date <span class="op">&lt;</span> validation_split_time]</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    validation_set <span class="op">=</span> dataset[(dataset.Date <span class="op">&gt;=</span> validation_split_time) <span class="op">&amp;</span> (dataset.Date <span class="op">&lt;</span> test_split_time)]</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    test_set <span class="op">=</span> dataset[dataset.Date <span class="op">&gt;=</span> test_split_time]</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    newly_created_sets <span class="op">=</span> ((train_set, <span class="st">"training set"</span>), (validation_set, <span class="st">"validation set"</span>), (test_set, <span class="st">"testing set"</span>))</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check if the division went well</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> data_partition, name <span class="kw">in</span> newly_created_sets:</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        display(data_partition.Date.iloc[[<span class="op">-</span><span class="dv">1</span>,<span class="dv">0</span>],])</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"The </span><span class="sc">{</span>name<span class="sc">}</span><span class="ss"> makes up </span><span class="sc">{</span>data_partition<span class="sc">.</span>shape[<span class="dv">0</span>] <span class="op">*</span> <span class="dv">100</span> <span class="op">/</span> dataset<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">:.2f}</span><span class="ss"> % of the dataset"</span>)</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    holiday_map <span class="op">=</span> {<span class="st">"0"</span>: <span class="dv">0</span>, <span class="st">"a"</span>: <span class="dv">1</span>, <span class="st">"b"</span>: <span class="dv">2</span>, <span class="st">"c"</span>: <span class="dv">3</span>}</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    storetype_map <span class="op">=</span> {<span class="st">"a"</span>: <span class="dv">0</span>, <span class="st">"b"</span>: <span class="dv">1</span>, <span class="st">"c"</span>: <span class="dv">2</span>, <span class="st">"d"</span>: <span class="dv">3</span>}</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    assortment_map <span class="op">=</span> {<span class="st">"a"</span>: <span class="dv">0</span>, <span class="st">"b"</span>: <span class="dv">1</span>, <span class="st">"c"</span>: <span class="dv">2</span>}</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> warnings.catch_warnings():</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>        warnings.simplefilter(<span class="st">"ignore"</span>)</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> df <span class="kw">in</span> (train_set, validation_set, test_set):</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"StateHoliday"</span>] <span class="op">=</span> df[<span class="st">"StateHoliday"</span>].<span class="bu">map</span>(holiday_map).astype(<span class="bu">int</span>)</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"StoreType"</span>] <span class="op">=</span> df[<span class="st">"StoreType"</span>].<span class="bu">map</span>(storetype_map).astype(<span class="bu">int</span>)</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"Assortment"</span>] <span class="op">=</span> df[<span class="st">"Assortment"</span>].<span class="bu">map</span>(assortment_map).astype(<span class="bu">int</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>The entire dataset is 941 days long</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>1017112   2015-04-26
+0         2013-01-01
+Name: Date, dtype: datetime64[ns]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>The training set makes up 89.48 % of the dataset</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>1017161   2015-06-14
+846       2015-04-27
+Name: Date, dtype: datetime64[ns]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>The validation set makes up 5.37 % of the dataset</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<pre><code>1017208   2015-07-31
+895       2015-06-15
+Name: Date, dtype: datetime64[ns]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>The testing set makes up 5.15 % of the dataset</code></pre>
+</div>
+</div>
+<div id="d7c9ee48" class="cell" data-execution_count="3">
+<details class="code-fold">
+<summary>Show the code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>train_set_open <span class="op">=</span> train_set.loc[train_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>validation_set_open <span class="op">=</span> validation_set.loc[validation_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>test_set_open <span class="op">=</span> test_set.loc[test_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rmspe(y_true, y_pred):</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    y_true <span class="op">=</span> np.array(y_true)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    y_pred <span class="op">=</span> np.array(y_pred)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    non_zero_idx <span class="op">=</span> y_true <span class="op">!=</span> <span class="dv">0</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.sqrt(np.mean(((y_true[non_zero_idx] <span class="op">-</span> y_pred[non_zero_idx]) <span class="op">/</span> y_true[non_zero_idx])<span class="op">**</span><span class="dv">2</span>))</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>dataset.loc[dataset.Store <span class="op">==</span> <span class="dv">1</span>, :].head(<span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Sales</th>
+<th data-quarto-table-cell-role="th">Customers</th>
+<th data-quarto-table-cell-role="th">Store</th>
+<th data-quarto-table-cell-role="th">Date</th>
+<th data-quarto-table-cell-role="th">DayOfWeek</th>
+<th data-quarto-table-cell-role="th">Week</th>
+<th data-quarto-table-cell-role="th">Month</th>
+<th data-quarto-table-cell-role="th">Year</th>
+<th data-quarto-table-cell-role="th">Open</th>
+<th data-quarto-table-cell-role="th">Promo</th>
+<th data-quarto-table-cell-role="th">...</th>
+<th data-quarto-table-cell-role="th">CompetitionMonthsTotal</th>
+<th data-quarto-table-cell-role="th">Promo2</th>
+<th data-quarto-table-cell-role="th">Promo2MonthsTotal</th>
+<th data-quarto-table-cell-role="th">Promo2CurrentlyOn</th>
+<th data-quarto-table-cell-role="th">SalesLag1</th>
+<th data-quarto-table-cell-role="th">SalesLag7</th>
+<th data-quarto-table-cell-role="th">RollingMean7</th>
+<th data-quarto-table-cell-role="th">SalesLag1Available</th>
+<th data-quarto-table-cell-role="th">SalesLag7Available</th>
+<th data-quarto-table-cell-role="th">RollingMean7Available</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>2013-01-01</td>
+<td>2</td>
+<td>1</td>
+<td>1</td>
+<td>2013</td>
+<td>0</td>
+<td>0</td>
+<td>...</td>
+<td>52</td>
+<td>0</td>
+<td>0.0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>5530</td>
+<td>668</td>
+<td>1</td>
+<td>2013-01-02</td>
+<td>3</td>
+<td>1</td>
+<td>1</td>
+<td>2013</td>
+<td>1</td>
+<td>0</td>
+<td>...</td>
+<td>52</td>
+<td>0</td>
+<td>0.0</td>
+<td>0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>4327</td>
+<td>578</td>
+<td>1</td>
+<td>2013-01-03</td>
+<td>4</td>
+<td>1</td>
+<td>1</td>
+<td>2013</td>
+<td>1</td>
+<td>0</td>
+<td>...</td>
+<td>52</td>
+<td>0</td>
+<td>0.0</td>
+<td>0</td>
+<td>5530.0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>4486</td>
+<td>619</td>
+<td>1</td>
+<td>2013-01-04</td>
+<td>5</td>
+<td>1</td>
+<td>1</td>
+<td>2013</td>
+<td>1</td>
+<td>0</td>
+<td>...</td>
+<td>52</td>
+<td>0</td>
+<td>0.0</td>
+<td>0</td>
+<td>4327.0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>4997</td>
+<td>635</td>
+<td>1</td>
+<td>2013-01-05</td>
+<td>6</td>
+<td>1</td>
+<td>1</td>
+<td>2013</td>
+<td>1</td>
+<td>0</td>
+<td>...</td>
+<td>52</td>
+<td>0</td>
+<td>0.0</td>
+<td>0</td>
+<td>4486.0</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+
+<p>5 rows × 26 columns</p>
+</div>
+</div>
+</div>
+</section>
+<section id="modeling-approach" class="level2">
+<h2 class="anchored" data-anchor-id="modeling-approach">1.2 Modeling Approach</h2>
+<p>The true testing set is missing not only the target <span class="math inline">\(Sales\)</span> but also the customer count. One option would be to model <span class="math inline">\(Sales\)</span> directly and let the model accurately predict customer effect. In our approach however, we model the customers individually first, and only after getting the customers values, predict the true sales with a <span class="math inline">\(Sales\)</span> model that utilizes customer count.</p>
+<div id="fig-model-flowchart" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-model-flowchart-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TB
+    T(Test set)
+
+    subgraph CUSTOMERS[Customer Part]
+    A(Fit a customers only model) 
+    D(Validation set)
+    D -.-&gt; |validate|A
+    A -.-&gt; |train|D(Validation set)
+    A --&gt; E([Model selected])
+    end
+
+    subgraph SALES[Sales Part]
+    B("Fit a sales model")
+    DD -.-&gt; |validate|B
+    B -.-&gt; |train|DD(Validation set)
+    B --&gt; G([Model selected])
+    E --&gt; |Add the customers to the test set| T
+    end
+    G --&gt; |"Predict the sales"| I
+    T --&gt; I([Sales RMSPE])
+    E --&gt; |Predict the customers| H([Customers RMSPE])
+    T --&gt; H
+
+    style G fill:#228C8D
+    style E fill:#228C8D
+    style A fill:#33628D,color:#FFF 
+    style B fill:#33628D,color:#FFF
+    style I fill:#31B57B
+    style H fill:#31B57B
+    style DD fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+    style D fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+    style T fill:#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-model-flowchart-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Basic flowchart of the modeling process
+</figcaption>
+</figure>
+</div>
+<p>Next, we need to incorporate the lag features. The main problem is that these values are not known in advance, so the <span class="math inline">\(Sales\)</span> model cannot be applied on the entire dataset at once.</p>
+<p>To solve this issue, we can use the <span class="math inline">\(Sales\)</span> model recursively, adding a single observation of sales and updating the lag features and rolling averages accordingly.</p>
+<p>The main problems:</p>
+<ul>
+<li>Modeling sales based on predicted values (<span class="math inline">\(Customers\)</span>)</li>
+<li>Recursive modeling using lags and rolling mean - propagating the error and compounding innacuracies.</li>
+</ul>
+</section>
+</section>
+<section id="random-forests" class="level1">
+<h1>2 Random Forests</h1>
+<div id="fig-static-image" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-static-image-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/tikz_bagging.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-static-image-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Schema of bootstrap aggregating
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="naive-modeling" class="level1">
+<h1>2.1 Naive Modeling</h1>
+<p>We can try and compare the naive approach (modeling the <span class="math inline">\(Sales\)</span> without the customers) and the customers + recursion approach.</p>
+<div id="7713ebf3" class="cell" data-execution_count="4">
+<details class="code-fold">
+<summary>Show the code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Customers"</span>, <span class="st">"Date"</span>] </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>lag_cols <span class="op">=</span> [<span class="st">"SalesLag1"</span>, <span class="st">"SalesLag7"</span>, <span class="st">"RollingMean7"</span>, <span class="st">"SalesLag1Available"</span>, <span class="st">"SalesLag7Available"</span>, <span class="st">"RollingMean7Available"</span>]</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>cols_to_select <span class="op">=</span> [col <span class="cf">for</span> col <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> col <span class="kw">not</span> <span class="kw">in</span> ignore_cols <span class="kw">and</span> col <span class="kw">not</span> <span class="kw">in</span> lag_cols]</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>x_train_naive <span class="op">=</span> train_set_open.loc[:, cols_to_select]</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>y_train_naive <span class="op">=</span> train_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>x_val_naive <span class="op">=</span> validation_set_open.loc[:, cols_to_select]</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>y_val_naive <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> grid_search(param_grid, model_type, x_train, y_train, x_val, y_val, n_jobs, verbose <span class="op">=</span> <span class="va">False</span>):</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    keys, values <span class="op">=</span> <span class="bu">zip</span>(<span class="op">*</span>param_grid.items())</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    param_combinations <span class="op">=</span> [<span class="bu">dict</span>(<span class="bu">zip</span>(keys, v)) <span class="cf">for</span> v <span class="kw">in</span> itertools.product(<span class="op">*</span>values)]</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    results_data <span class="op">=</span> []</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, params <span class="kw">in</span> <span class="bu">enumerate</span>(param_combinations):</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        model <span class="op">=</span> model_type(</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>            <span class="op">**</span>params,</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>            random_state<span class="op">=</span><span class="dv">42</span>,</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>            n_jobs<span class="op">=</span>n_jobs,</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>            verbose<span class="op">=</span><span class="dv">0</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        model.fit(x_train, y_train)</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        y_train_predicted <span class="op">=</span> model.predict(x_train)</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        y_val_predicted <span class="op">=</span> model.predict(x_val)</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>        mse_train <span class="op">=</span> mean_squared_error(y_train, y_train_predicted)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>        rmse_train <span class="op">=</span> mse_train <span class="op">**</span> <span class="fl">0.5</span></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>        r2_train <span class="op">=</span> r2_score(y_train, y_train_predicted)</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>        rmspe_train <span class="op">=</span> rmspe(y_train, y_train_predicted)</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>        mse_val <span class="op">=</span> mean_squared_error(y_val, y_val_predicted)</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>        rmse_val <span class="op">=</span> mse_val <span class="op">**</span> <span class="fl">0.5</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>        r2_val <span class="op">=</span> r2_score(y_val, y_val_predicted)</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>        rmspe_val <span class="op">=</span> rmspe(y_val, y_val_predicted)</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>        results_entry <span class="op">=</span> params.copy()</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>        results_entry[<span class="st">"Train_RMSPE"</span>] <span class="op">=</span> rmspe_train</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        results_entry[<span class="st">"Val_RMSPE"</span>] <span class="op">=</span> rmspe_val</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>        results_data.append(results_entry)</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> verbose:</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"==== TRAINING ==== (</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train RMSE: </span><span class="sc">{</span>rmse_train<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train R²: </span><span class="sc">{</span>r2_train<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train RMSPE: </span><span class="sc">{</span>rmspe_train<span class="sc">:.4f}</span><span class="ss"> (</span><span class="sc">{</span>rmspe_train<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">%)"</span>)</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"==== TRAINING ===="</span>)</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>()</span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"==== VALIDATION ==== (</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation RMSE: </span><span class="sc">{</span>rmse_val<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation R²: </span><span class="sc">{</span>r2_val<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation RMSPE: </span><span class="sc">{</span>rmspe_val<span class="sc">:.4f}</span><span class="ss"> (</span><span class="sc">{</span>rmspe_val<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">%)"</span>)</span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"==== VALIDATION ===="</span>)</span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"(</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>    results_df <span class="op">=</span> pd.DataFrame(results_data)</span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>    results_df <span class="op">=</span> results_df.sort_values(by<span class="op">=</span><span class="st">"Val_RMSPE"</span>, ascending<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> verbose:</span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a>        display(results_df.head(<span class="dv">5</span>))</span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results_df</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>For tuning hyperparameters we will utilize a simple grid-search approach, comparing the training and validation RMSPE errors and selecting the ideal model with the smallest ones.</p>
+<div id="38b48a81" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>param_grid_naive <span class="op">=</span> {</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">100</span>, <span class="dv">200</span>],</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">50</span>, <span class="va">None</span>],</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>, <span class="dv">1</span>],</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>, <span class="dv">1</span>]</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">#"min_samples_split": [2, 5, 10],</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">#"min_samples_leaf": [1, 2, 4]</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co"># These models do NOT use the customers to predict the sales</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>results_naive <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_naive,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>                            model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>                            x_train<span class="op">=</span>x_train_naive,</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>                            y_train<span class="op">=</span>y_train_naive,</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>                            x_val<span class="op">=</span>x_val_naive,</span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>                            y_val<span class="op">=</span>y_val_naive,</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>                            n_jobs<span class="op">=</span><span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Best performing models with these parameter combinations:</p>
+<div id="43513e7a" class="cell" data-execution_count="6">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">n_estimators</th>
+<th data-quarto-table-cell-role="th">max_depth</th>
+<th data-quarto-table-cell-role="th">max_samples</th>
+<th data-quarto-table-cell-role="th">max_features</th>
+<th data-quarto-table-cell-role="th">Train_RMSPE</th>
+<th data-quarto-table-cell-role="th">Val_RMSPE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>200</td>
+<td>50.0</td>
+<td>0.8</td>
+<td>0.5</td>
+<td>0.100766</td>
+<td>0.143137</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>200</td>
+<td>NaN</td>
+<td>0.8</td>
+<td>0.5</td>
+<td>0.100766</td>
+<td>0.143162</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>100</td>
+<td>NaN</td>
+<td>0.8</td>
+<td>0.5</td>
+<td>0.099735</td>
+<td>0.143803</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>100</td>
+<td>50.0</td>
+<td>0.8</td>
+<td>0.5</td>
+<td>0.099737</td>
+<td>0.143806</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<p>And the worst ones:</p>
+<div id="0625b4e0" class="cell" data-execution_count="7">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">n_estimators</th>
+<th data-quarto-table-cell-role="th">max_depth</th>
+<th data-quarto-table-cell-role="th">max_samples</th>
+<th data-quarto-table-cell-role="th">max_features</th>
+<th data-quarto-table-cell-role="th">Train_RMSPE</th>
+<th data-quarto-table-cell-role="th">Val_RMSPE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">32</th>
+<td>100</td>
+<td>NaN</td>
+<td>1.0</td>
+<td>sqrt</td>
+<td>0.660058</td>
+<td>0.526316</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">33</th>
+<td>100</td>
+<td>NaN</td>
+<td>1.0</td>
+<td>1</td>
+<td>0.660058</td>
+<td>0.526316</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">34</th>
+<td>100</td>
+<td>50.0</td>
+<td>1.0</td>
+<td>1</td>
+<td>0.660058</td>
+<td>0.526316</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">35</th>
+<td>100</td>
+<td>NaN</td>
+<td>1.0</td>
+<td>0.5</td>
+<td>0.660058</td>
+<td>0.526316</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="recursive-modeling" class="level1">
+<h1>2.2 Recursive Modeling</h1>
+<div id="ef0ecb92" class="cell" data-execution_count="9">
+<details class="code-fold">
+<summary>Show the code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>cust_ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Customers"</span>, <span class="st">"Date"</span>]</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>sales_ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Date"</span>]</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>lag_cols <span class="op">=</span> [<span class="st">"SalesLag1"</span>, <span class="st">"SalesLag7"</span>, <span class="st">"RollingMean7"</span>, <span class="st">"SalesLag1Available"</span>, <span class="st">"SalesLag7Available"</span>, <span class="st">"RollingMean7Available"</span>]</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>cols_to_select_cust <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> c <span class="kw">not</span> <span class="kw">in</span> cust_ignore_cols <span class="kw">and</span> c <span class="kw">not</span> <span class="kw">in</span> lag_cols]</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>cols_to_select_sales <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> c <span class="kw">not</span> <span class="kw">in</span> sales_ignore_cols]</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>x_train_cust <span class="op">=</span> train_set_open[cols_to_select_cust]</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>y_train_cust <span class="op">=</span> train_set_open.loc[:, <span class="st">"Customers"</span>]</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>x_val_cust <span class="op">=</span> validation_set_open[cols_to_select_cust]</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>y_val_cust <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Customers"</span>]</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>x_train_sales <span class="op">=</span> train_set_open[cols_to_select_sales]</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>y_train_sales <span class="op">=</span> train_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>x_val_sales <span class="op">=</span> validation_set_open[cols_to_select_sales]</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>y_val_sales <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>param_grid_cust <span class="op">=</span> {</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">50</span>, <span class="dv">100</span>],</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">50</span>],</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>],</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>]</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>results_cust <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_cust,</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>                           model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>                           x_train<span class="op">=</span>x_train_cust,</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>                           y_train<span class="op">=</span>y_train_cust,</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>                           x_val<span class="op">=</span>x_val_cust,</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>                           y_val<span class="op">=</span>y_val_cust,</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>                           n_jobs<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>param_grid_sales <span class="op">=</span> {</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">50</span>, <span class="dv">100</span>],</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">50</span>],</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>],</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>]</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>results_sales <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_sales,</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>                            model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>                            x_train<span class="op">=</span>x_train_sales,</span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>                            y_train<span class="op">=</span>y_train_sales,</span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>                            x_val<span class="op">=</span>x_val_sales,</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>                            y_val<span class="op">=</span>y_val_sales,</span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>                            n_jobs<span class="op">=</span><span class="dv">5</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>For the resursive modeling, we need to optimize the hyperparameters of two distinct models. The first one being the classic <span class="math inline">\(Customers\)</span> model:</p>
+<div id="728a4577" class="cell" data-execution_count="10">
+<div class="cell-output cell-output-display">
+<style type="text/css">
+#T_7ff18_row0_col0, #T_7ff18_row0_col1, #T_7ff18_row0_col2, #T_7ff18_row0_col3, #T_7ff18_row0_col4, #T_7ff18_row0_col5 {
+  background-color: #32648e;
+  font-weight: bold;
+  color: white;
+}
+#T_7ff18_row1_col0, #T_7ff18_row1_col1, #T_7ff18_row1_col2, #T_7ff18_row1_col3, #T_7ff18_row1_col4, #T_7ff18_row1_col5 {
+  background-color: #21918c;
+  font-weight: bold;
+  color: white;
+}
+</style>
+
+<table id="T_7ff18" class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th class="blank level0" data-quarto-table-cell-role="th">&nbsp;</th>
+<th id="T_7ff18_level0_col0" class="col_heading level0 col0" data-quarto-table-cell-role="th">n_estimators</th>
+<th id="T_7ff18_level0_col1" class="col_heading level0 col1" data-quarto-table-cell-role="th">max_depth</th>
+<th id="T_7ff18_level0_col2" class="col_heading level0 col2" data-quarto-table-cell-role="th">max_samples</th>
+<th id="T_7ff18_level0_col3" class="col_heading level0 col3" data-quarto-table-cell-role="th">max_features</th>
+<th id="T_7ff18_level0_col4" class="col_heading level0 col4" data-quarto-table-cell-role="th">Train_RMSPE</th>
+<th id="T_7ff18_level0_col5" class="col_heading level0 col5" data-quarto-table-cell-role="th">Val_RMSPE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th id="T_7ff18_level0_row0" class="row_heading level0 row0" data-quarto-table-cell-role="th">0</th>
+<td id="T_7ff18_row0_col0" class="data row0 col0">100</td>
+<td id="T_7ff18_row0_col1" class="data row0 col1">25</td>
+<td id="T_7ff18_row0_col2" class="data row0 col2">0.800000</td>
+<td id="T_7ff18_row0_col3" class="data row0 col3">0.5</td>
+<td id="T_7ff18_row0_col4" class="data row0 col4">0.270484</td>
+<td id="T_7ff18_row0_col5" class="data row0 col5">0.111431</td>
+</tr>
+<tr class="even">
+<th id="T_7ff18_level0_row1" class="row_heading level0 row1" data-quarto-table-cell-role="th">1</th>
+<td id="T_7ff18_row1_col0" class="data row1 col0">100</td>
+<td id="T_7ff18_row1_col1" class="data row1 col1">50</td>
+<td id="T_7ff18_row1_col2" class="data row1 col2">0.600000</td>
+<td id="T_7ff18_row1_col3" class="data row1 col3">0.5</td>
+<td id="T_7ff18_row1_col4" class="data row1 col4">0.309755</td>
+<td id="T_7ff18_row1_col5" class="data row1 col5">0.111556</td>
+</tr>
+<tr class="odd">
+<th id="T_7ff18_level0_row2" class="row_heading level0 row2" data-quarto-table-cell-role="th">2</th>
+<td id="T_7ff18_row2_col0" class="data row2 col0">50</td>
+<td id="T_7ff18_row2_col1" class="data row2 col1">25</td>
+<td id="T_7ff18_row2_col2" class="data row2 col2">0.800000</td>
+<td id="T_7ff18_row2_col3" class="data row2 col3">0.5</td>
+<td id="T_7ff18_row2_col4" class="data row2 col4">0.268149</td>
+<td id="T_7ff18_row2_col5" class="data row2 col5">0.112639</td>
+</tr>
+<tr class="even">
+<th id="T_7ff18_level0_row3" class="row_heading level0 row3" data-quarto-table-cell-role="th">3</th>
+<td id="T_7ff18_row3_col0" class="data row3 col0">100</td>
+<td id="T_7ff18_row3_col1" class="data row3 col1">50</td>
+<td id="T_7ff18_row3_col2" class="data row3 col2">0.800000</td>
+<td id="T_7ff18_row3_col3" class="data row3 col3">0.5</td>
+<td id="T_7ff18_row3_col4" class="data row3 col4">0.260749</td>
+<td id="T_7ff18_row3_col5" class="data row3 col5">0.112667</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p><br></p>
+<div style="display: flex; gap: 0; padding: 0; margin: 0;">
+<p><img src="images/tree_depths_cust_rf_best.png" style="width: 49%; padding: 0; margin: 0; border: none;"> <img src="images/tree_depths_cust_rf_showcase.png" style="width: 49%; padding: 0; margin: 0; border: none;"></p>
+</div>
+<p>Both of the tables show a very unusual situation, where the training error is actually higher than the validation error. This can happen because the validation set is very small, so the model finds it considerably easier to predict values there, compared to the training set with full yearly seasonality.</p>
+<div id="db0c5672" class="cell" data-execution_count="11">
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">n_estimators</th>
+<th data-quarto-table-cell-role="th">max_depth</th>
+<th data-quarto-table-cell-role="th">max_samples</th>
+<th data-quarto-table-cell-role="th">max_features</th>
+<th data-quarto-table-cell-role="th">Train_RMSPE</th>
+<th data-quarto-table-cell-role="th">Val_RMSPE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">20</th>
+<td>100</td>
+<td>10</td>
+<td>0.8</td>
+<td>sqrt</td>
+<td>0.636570</td>
+<td>0.364999</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">21</th>
+<td>50</td>
+<td>10</td>
+<td>0.8</td>
+<td>sqrt</td>
+<td>0.631616</td>
+<td>0.365386</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">22</th>
+<td>50</td>
+<td>10</td>
+<td>0.6</td>
+<td>sqrt</td>
+<td>0.626613</td>
+<td>0.366301</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">23</th>
+<td>100</td>
+<td>10</td>
+<td>0.6</td>
+<td>sqrt</td>
+<td>0.632858</td>
+<td>0.367326</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div id="fig-static-image2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-static-image2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="images/cust_rf_tree.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-static-image2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: A small slice of the first tree in the forest
+</figcaption>
+</figure>
+</div>
+<p>And the second one being the recursive <span class="math inline">\(Sales\)</span> one. does <em>not</em> change how the model is trained, as the training dataset contains the actual customers and lags.</p>
+<div id="9157a3fb" class="cell" data-execution_count="12">
+<details class="code-fold">
+<summary>Show the code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>customers_best_params_rf <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/customers_recursive_randomforest_grid_small.csv"</span>).iloc[<span class="dv">2</span>, <span class="dv">0</span>:<span class="dv">4</span>].to_dict()</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>sales_best_params_rf <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/sales_recursive_randomforest_grid_small.csv"</span>).iloc[<span class="dv">2</span>, <span class="dv">0</span>:<span class="dv">4</span>].to_dict()</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> params <span class="kw">in</span> (customers_best_params_rf, sales_best_params_rf):</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    params[<span class="st">"max_depth"</span>] <span class="op">=</span> <span class="bu">int</span>(params[<span class="st">"max_depth"</span>])</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    params[<span class="st">"max_features"</span>] <span class="op">=</span> <span class="bu">float</span>(params[<span class="st">"max_features"</span>])</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cust"</span>, customers_best_params_rf)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Sales"</span>, sales_best_params_rf)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>Cust {'n_estimators': 50, 'max_depth': 25, 'max_samples': 0.8, 'max_features': 0.5}
+Sales {'n_estimators': 50, 'max_depth': 25, 'max_samples': 0.8, 'max_features': 0.5}</code></pre>
+</div>
+</div>
+</section>
+<section id="gradient-boosting---lightgbm" class="level1">
+<h1>3 Gradient Boosting - LightGBM</h1>
+</section>
+<section id="neural-networks---classic-mlp" class="level1">
+<h1>4 Neural Networks - classic MLP</h1>
+<!-- -->
+
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Rossmann sales prediction"</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Filip Šajtlava, Vojtěch Andrle"</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> m9dm2_project</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "today"</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co">    html:</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co">        toc: true</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="co">        code-fold: true</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="co">        code-tools:</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="co">            source: true</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co">            toggle: true</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="co">            caption: "Show the code"</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="co">        code-summary: "Show the code"</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="co">        css: styles.css</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="an">theme:</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="co">    light: flatly</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="co">#highlight-style: github</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a><span class="co">#| include: false</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a><span class="co">#| </span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> lightgbm <span class="im">as</span> lgb</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> shap</span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.ensemble <span class="im">import</span> RandomForestRegressor</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.metrics <span class="im">import</span> mean_squared_error, r2_score</span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.tree <span class="im">import</span> plot_tree</span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> warnings</span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> itertools</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> gc</span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> tensorflow <span class="im">as</span> tf</span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.layers <span class="im">import</span> Input, Embedding, Flatten, Dense, Concatenate, Dropout</span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.models <span class="im">import</span> Model</span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.optimizers <span class="im">import</span> Adam</span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> tensorflow.keras.callbacks <span class="im">import</span> EarlyStopping</span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sklearn.preprocessing <span class="im">import</span> StandardScaler</span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>vir_col <span class="op">=</span> plt.get_cmap(<span class="st">"viridis"</span>)</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>plt.style.use(<span class="st">"ggplot"</span>)</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'text.color'</span>] <span class="op">=</span> <span class="st">'black'</span></span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'axes.labelcolor'</span>] <span class="op">=</span> <span class="st">'black'</span></span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'xtick.color'</span>] <span class="op">=</span> <span class="st">'black'</span></span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'ytick.color'</span>] <span class="op">=</span> <span class="st">'black'</span></span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'axes.edgecolor'</span>] <span class="op">=</span> <span class="st">'black'</span></span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-55"><a href="#cb15-55" aria-hidden="true" tabindex="-1"></a><span class="fu"># 1 Model Selection</span></span>
+<span id="cb15-56"><a href="#cb15-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-57"><a href="#cb15-57" aria-hidden="true" tabindex="-1"></a>We compare three models in our analysis:</span>
+<span id="cb15-58"><a href="#cb15-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-59"><a href="#cb15-59" aria-hidden="true" tabindex="-1"></a>i. **Random Forests**,</span>
+<span id="cb15-60"><a href="#cb15-60" aria-hidden="true" tabindex="-1"></a>ii. **LightGBM**,</span>
+<span id="cb15-61"><a href="#cb15-61" aria-hidden="true" tabindex="-1"></a>iii. **Neural Networks**.</span>
+<span id="cb15-62"><a href="#cb15-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-63"><a href="#cb15-63" aria-hidden="true" tabindex="-1"></a>To evaluate their performance, we use the Root Mean Squared Percentage Error ($\text{RMSPE}$), defined as:</span>
+<span id="cb15-64"><a href="#cb15-64" aria-hidden="true" tabindex="-1"></a>$$ \text{RMSPE}(\mathbf{y}, \mathbf{\widehat{y}}) = \sqrt{\frac{1}{n} \sum_{i=1}^n \left( \frac{y_i - \widehat{y}_i}{y_i} \right)^2}$$</span>
+<span id="cb15-65"><a href="#cb15-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-66"><a href="#cb15-66" aria-hidden="true" tabindex="-1"></a>The best achieved performance on this dataset was $\text{RMSPE} \approx 0.10$. We keep this benchmark in mind when comparing our own models.</span>
+<span id="cb15-67"><a href="#cb15-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-68"><a href="#cb15-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.1 Data Preparation (again)</span></span>
+<span id="cb15-69"><a href="#cb15-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-70"><a href="#cb15-70" aria-hidden="true" tabindex="-1"></a>Due to autocorrelation, it is useful to include recent sales information (along with their corresponding dummy availability variables):</span>
+<span id="cb15-71"><a href="#cb15-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-72"><a href="#cb15-72" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$SalesLag1$</span>
+<span id="cb15-73"><a href="#cb15-73" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$SalesLag2$</span>
+<span id="cb15-74"><a href="#cb15-74" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$RollingMean7$</span>
+<span id="cb15-75"><a href="#cb15-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-76"><a href="#cb15-76" aria-hidden="true" tabindex="-1"></a>These allow us to have the model look back at the sales in the near past, possibly strengthening the prediction.</span>
+<span id="cb15-77"><a href="#cb15-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-78"><a href="#cb15-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-79"><a href="#cb15-79" aria-hidden="true" tabindex="-1"></a>The original dataset on <span class="co">[</span><span class="ot">Kaggle.com</span><span class="co">](https://www.kaggle.com/c/rossmann-store-sales)</span> included both training and testing data, but since the official competition ended a decade ago, the actual true testing outcomes $\mathbf{y}$ $(Sales)$ are not available. For this reason, we split the data ourselves, with the test data having approximately 6 weeks (consistent with the length of the original competition’s test period).</span>
+<span id="cb15-80"><a href="#cb15-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-83"><a href="#cb15-83" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-84"><a href="#cb15-84" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> pd.read_pickle(<span class="st">"../train_clean.pkl"</span>)</span>
+<span id="cb15-85"><a href="#cb15-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-86"><a href="#cb15-86" aria-hidden="true" tabindex="-1"></a><span class="co"># Due to autocorrelation surfacing in the visualization part, we"re going to add </span></span>
+<span id="cb15-87"><a href="#cb15-87" aria-hidden="true" tabindex="-1"></a><span class="co"># lag and rolling mean</span></span>
+<span id="cb15-88"><a href="#cb15-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-89"><a href="#cb15-89" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> dataset.sort_values(by<span class="op">=</span>[<span class="st">"Store"</span>, <span class="st">"Date"</span>]).reset_index(drop<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-90"><a href="#cb15-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-91"><a href="#cb15-91" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> warnings.catch_warnings():</span>
+<span id="cb15-92"><a href="#cb15-92" aria-hidden="true" tabindex="-1"></a>    warnings.simplefilter(<span class="st">"ignore"</span>)</span>
+<span id="cb15-93"><a href="#cb15-93" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag1"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].shift(<span class="dv">1</span>)</span>
+<span id="cb15-94"><a href="#cb15-94" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag7"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].shift(<span class="dv">7</span>)</span>
+<span id="cb15-95"><a href="#cb15-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-96"><a href="#cb15-96" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"RollingMean7"</span>] <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>)[<span class="st">"Sales"</span>].rolling(<span class="dv">7</span>).mean().shift(<span class="dv">1</span>).reset_index(level<span class="op">=</span><span class="dv">0</span>, drop<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-97"><a href="#cb15-97" aria-hidden="true" tabindex="-1"></a>    first_idx_per_store <span class="op">=</span> dataset.groupby(<span class="st">"Store"</span>).head(<span class="dv">1</span>).index</span>
+<span id="cb15-98"><a href="#cb15-98" aria-hidden="true" tabindex="-1"></a>    dataset.loc[first_idx_per_store, <span class="st">"RollingMean7"</span>] <span class="op">=</span> <span class="bu">float</span>(<span class="st">"nan"</span>)</span>
+<span id="cb15-99"><a href="#cb15-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-100"><a href="#cb15-100" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag1Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"SalesLag1"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb15-101"><a href="#cb15-101" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"SalesLag7Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"SalesLag7"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb15-102"><a href="#cb15-102" aria-hidden="true" tabindex="-1"></a>    dataset[<span class="st">"RollingMean7Available"</span>] <span class="op">=</span> <span class="op">~</span>dataset[<span class="st">"RollingMean7"</span>].isna() <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb15-103"><a href="#cb15-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-104"><a href="#cb15-104" aria-hidden="true" tabindex="-1"></a>    dataset.loc[:, dataset.isna().<span class="bu">sum</span>() <span class="op">!=</span> <span class="dv">0</span>] <span class="op">=</span> dataset.loc[:, dataset.isna().<span class="bu">sum</span>() <span class="op">!=</span> <span class="dv">0</span>].fillna(<span class="dv">0</span>)</span>
+<span id="cb15-105"><a href="#cb15-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-106"><a href="#cb15-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-107"><a href="#cb15-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-108"><a href="#cb15-108" aria-hidden="true" tabindex="-1"></a>    <span class="co">### Split the dataset into 3 disjunct sets</span></span>
+<span id="cb15-109"><a href="#cb15-109" aria-hidden="true" tabindex="-1"></a>    days_amount <span class="op">=</span> (dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> dataset.Date.iloc[<span class="dv">0</span>,])</span>
+<span id="cb15-110"><a href="#cb15-110" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"The entire dataset is"</span>, days_amount.days, <span class="st">"days long"</span>)</span>
+<span id="cb15-111"><a href="#cb15-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-112"><a href="#cb15-112" aria-hidden="true" tabindex="-1"></a>    <span class="co"># We will do 90-5-5 split to align with the original kaggle prediction expectations</span></span>
+<span id="cb15-113"><a href="#cb15-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-114"><a href="#cb15-114" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Gets the last date information and goes back around 5% of the dataset (the -1 corrects from sunday to monday)</span></span>
+<span id="cb15-115"><a href="#cb15-115" aria-hidden="true" tabindex="-1"></a>    test_split_time <span class="op">=</span> dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> pd.Timedelta(days<span class="op">=</span><span class="bu">int</span>(days_amount.days<span class="op">*</span><span class="fl">0.05</span> <span class="op">-</span> <span class="dv">1</span>))</span>
+<span id="cb15-116"><a href="#cb15-116" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Same for the validation data</span></span>
+<span id="cb15-117"><a href="#cb15-117" aria-hidden="true" tabindex="-1"></a>    validation_split_time <span class="op">=</span> dataset.Date.iloc[<span class="op">-</span><span class="dv">1</span>,] <span class="op">-</span> pd.Timedelta(days<span class="op">=</span><span class="bu">int</span>(days_amount.days<span class="op">*</span><span class="fl">0.1</span> <span class="op">+</span> <span class="dv">1</span>))</span>
+<span id="cb15-118"><a href="#cb15-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-119"><a href="#cb15-119" aria-hidden="true" tabindex="-1"></a>    train_set <span class="op">=</span> dataset[dataset.Date <span class="op">&lt;</span> validation_split_time]</span>
+<span id="cb15-120"><a href="#cb15-120" aria-hidden="true" tabindex="-1"></a>    validation_set <span class="op">=</span> dataset[(dataset.Date <span class="op">&gt;=</span> validation_split_time) <span class="op">&amp;</span> (dataset.Date <span class="op">&lt;</span> test_split_time)]</span>
+<span id="cb15-121"><a href="#cb15-121" aria-hidden="true" tabindex="-1"></a>    test_set <span class="op">=</span> dataset[dataset.Date <span class="op">&gt;=</span> test_split_time]</span>
+<span id="cb15-122"><a href="#cb15-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-123"><a href="#cb15-123" aria-hidden="true" tabindex="-1"></a>    newly_created_sets <span class="op">=</span> ((train_set, <span class="st">"training set"</span>), (validation_set, <span class="st">"validation set"</span>), (test_set, <span class="st">"testing set"</span>))</span>
+<span id="cb15-124"><a href="#cb15-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-125"><a href="#cb15-125" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check if the division went well</span></span>
+<span id="cb15-126"><a href="#cb15-126" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> data_partition, name <span class="kw">in</span> newly_created_sets:</span>
+<span id="cb15-127"><a href="#cb15-127" aria-hidden="true" tabindex="-1"></a>        display(data_partition.Date.iloc[[<span class="op">-</span><span class="dv">1</span>,<span class="dv">0</span>],])</span>
+<span id="cb15-128"><a href="#cb15-128" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"The </span><span class="sc">{</span>name<span class="sc">}</span><span class="ss"> makes up </span><span class="sc">{</span>data_partition<span class="sc">.</span>shape[<span class="dv">0</span>] <span class="op">*</span> <span class="dv">100</span> <span class="op">/</span> dataset<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">:.2f}</span><span class="ss"> % of the dataset"</span>)</span>
+<span id="cb15-129"><a href="#cb15-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-130"><a href="#cb15-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-131"><a href="#cb15-131" aria-hidden="true" tabindex="-1"></a>    holiday_map <span class="op">=</span> {<span class="st">"0"</span>: <span class="dv">0</span>, <span class="st">"a"</span>: <span class="dv">1</span>, <span class="st">"b"</span>: <span class="dv">2</span>, <span class="st">"c"</span>: <span class="dv">3</span>}</span>
+<span id="cb15-132"><a href="#cb15-132" aria-hidden="true" tabindex="-1"></a>    storetype_map <span class="op">=</span> {<span class="st">"a"</span>: <span class="dv">0</span>, <span class="st">"b"</span>: <span class="dv">1</span>, <span class="st">"c"</span>: <span class="dv">2</span>, <span class="st">"d"</span>: <span class="dv">3</span>}</span>
+<span id="cb15-133"><a href="#cb15-133" aria-hidden="true" tabindex="-1"></a>    assortment_map <span class="op">=</span> {<span class="st">"a"</span>: <span class="dv">0</span>, <span class="st">"b"</span>: <span class="dv">1</span>, <span class="st">"c"</span>: <span class="dv">2</span>}</span>
+<span id="cb15-134"><a href="#cb15-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-135"><a href="#cb15-135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> warnings.catch_warnings():</span>
+<span id="cb15-136"><a href="#cb15-136" aria-hidden="true" tabindex="-1"></a>        warnings.simplefilter(<span class="st">"ignore"</span>)</span>
+<span id="cb15-137"><a href="#cb15-137" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> df <span class="kw">in</span> (train_set, validation_set, test_set):</span>
+<span id="cb15-138"><a href="#cb15-138" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"StateHoliday"</span>] <span class="op">=</span> df[<span class="st">"StateHoliday"</span>].<span class="bu">map</span>(holiday_map).astype(<span class="bu">int</span>)</span>
+<span id="cb15-139"><a href="#cb15-139" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"StoreType"</span>] <span class="op">=</span> df[<span class="st">"StoreType"</span>].<span class="bu">map</span>(storetype_map).astype(<span class="bu">int</span>)</span>
+<span id="cb15-140"><a href="#cb15-140" aria-hidden="true" tabindex="-1"></a>            df[<span class="st">"Assortment"</span>] <span class="op">=</span> df[<span class="st">"Assortment"</span>].<span class="bu">map</span>(assortment_map).astype(<span class="bu">int</span>)</span>
+<span id="cb15-141"><a href="#cb15-141" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-142"><a href="#cb15-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-145"><a href="#cb15-145" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-146"><a href="#cb15-146" aria-hidden="true" tabindex="-1"></a>train_set_open <span class="op">=</span> train_set.loc[train_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb15-147"><a href="#cb15-147" aria-hidden="true" tabindex="-1"></a>validation_set_open <span class="op">=</span> validation_set.loc[validation_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb15-148"><a href="#cb15-148" aria-hidden="true" tabindex="-1"></a>test_set_open <span class="op">=</span> test_set.loc[test_set.Open <span class="op">==</span> <span class="dv">1</span>, :]</span>
+<span id="cb15-149"><a href="#cb15-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-150"><a href="#cb15-150" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rmspe(y_true, y_pred):</span>
+<span id="cb15-151"><a href="#cb15-151" aria-hidden="true" tabindex="-1"></a>    y_true <span class="op">=</span> np.array(y_true)</span>
+<span id="cb15-152"><a href="#cb15-152" aria-hidden="true" tabindex="-1"></a>    y_pred <span class="op">=</span> np.array(y_pred)</span>
+<span id="cb15-153"><a href="#cb15-153" aria-hidden="true" tabindex="-1"></a>    non_zero_idx <span class="op">=</span> y_true <span class="op">!=</span> <span class="dv">0</span></span>
+<span id="cb15-154"><a href="#cb15-154" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> np.sqrt(np.mean(((y_true[non_zero_idx] <span class="op">-</span> y_pred[non_zero_idx]) <span class="op">/</span> y_true[non_zero_idx])<span class="op">**</span><span class="dv">2</span>))</span>
+<span id="cb15-155"><a href="#cb15-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-156"><a href="#cb15-156" aria-hidden="true" tabindex="-1"></a>dataset.loc[dataset.Store <span class="op">==</span> <span class="dv">1</span>, :].head(<span class="dv">5</span>)</span>
+<span id="cb15-157"><a href="#cb15-157" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-158"><a href="#cb15-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-159"><a href="#cb15-159" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.2 Modeling Approach</span></span>
+<span id="cb15-160"><a href="#cb15-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-161"><a href="#cb15-161" aria-hidden="true" tabindex="-1"></a>The true testing set is missing not only the target $Sales$ but also the customer count. One option would be to model $Sales$</span>
+<span id="cb15-162"><a href="#cb15-162" aria-hidden="true" tabindex="-1"></a>directly and let the model accurately predict customer effect. In our approach however, we model the customers individually first, and only after getting the customers values, predict the true sales with a $Sales$ model that utilizes customer count.</span>
+<span id="cb15-163"><a href="#cb15-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-164"><a href="#cb15-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-165"><a href="#cb15-165" aria-hidden="true" tabindex="-1"></a>::: {#fig-model-flowchart fig-cap="Basic flowchart of the modeling process" fig-align="center"}</span>
+<span id="cb15-168"><a href="#cb15-168" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb15-169"><a href="#cb15-169" aria-hidden="true" tabindex="-1"></a>flowchart TB</span>
+<span id="cb15-170"><a href="#cb15-170" aria-hidden="true" tabindex="-1"></a>    T(Test set)</span>
+<span id="cb15-171"><a href="#cb15-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-172"><a href="#cb15-172" aria-hidden="true" tabindex="-1"></a>    subgraph CUSTOMERS[Customer Part]</span>
+<span id="cb15-173"><a href="#cb15-173" aria-hidden="true" tabindex="-1"></a>    A(Fit a customers only model) </span>
+<span id="cb15-174"><a href="#cb15-174" aria-hidden="true" tabindex="-1"></a>    D(Validation set)</span>
+<span id="cb15-175"><a href="#cb15-175" aria-hidden="true" tabindex="-1"></a>    D -.-&gt; |validate|A</span>
+<span id="cb15-176"><a href="#cb15-176" aria-hidden="true" tabindex="-1"></a>    A -.-&gt; |train|D(Validation set)</span>
+<span id="cb15-177"><a href="#cb15-177" aria-hidden="true" tabindex="-1"></a>    A --&gt; E([Model selected])</span>
+<span id="cb15-178"><a href="#cb15-178" aria-hidden="true" tabindex="-1"></a>    end</span>
+<span id="cb15-179"><a href="#cb15-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-180"><a href="#cb15-180" aria-hidden="true" tabindex="-1"></a>    subgraph SALES[Sales Part]</span>
+<span id="cb15-181"><a href="#cb15-181" aria-hidden="true" tabindex="-1"></a>    B(<span class="ot">"</span><span class="st">Fit a sales model</span><span class="ot">"</span>)</span>
+<span id="cb15-182"><a href="#cb15-182" aria-hidden="true" tabindex="-1"></a>    DD -.-&gt; |validate|B</span>
+<span id="cb15-183"><a href="#cb15-183" aria-hidden="true" tabindex="-1"></a>    B -.-&gt; |train|DD(Validation set)</span>
+<span id="cb15-184"><a href="#cb15-184" aria-hidden="true" tabindex="-1"></a>    B --&gt; G([Model selected])</span>
+<span id="cb15-185"><a href="#cb15-185" aria-hidden="true" tabindex="-1"></a>    E --&gt; |Add the customers to the test set| T</span>
+<span id="cb15-186"><a href="#cb15-186" aria-hidden="true" tabindex="-1"></a>    end</span>
+<span id="cb15-187"><a href="#cb15-187" aria-hidden="true" tabindex="-1"></a>    G --&gt; |<span class="ot">"</span><span class="st">Predict the sales</span><span class="ot">"</span>| I</span>
+<span id="cb15-188"><a href="#cb15-188" aria-hidden="true" tabindex="-1"></a>    T --&gt; I([Sales RMSPE])</span>
+<span id="cb15-189"><a href="#cb15-189" aria-hidden="true" tabindex="-1"></a>    E --&gt; |Predict the customers| H([Customers RMSPE])</span>
+<span id="cb15-190"><a href="#cb15-190" aria-hidden="true" tabindex="-1"></a>    T --&gt; H</span>
+<span id="cb15-191"><a href="#cb15-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-192"><a href="#cb15-192" aria-hidden="true" tabindex="-1"></a>    style G fill:<span class="co">#228C8D</span></span>
+<span id="cb15-193"><a href="#cb15-193" aria-hidden="true" tabindex="-1"></a>    style E fill:<span class="co">#228C8D</span></span>
+<span id="cb15-194"><a href="#cb15-194" aria-hidden="true" tabindex="-1"></a>    style A fill:<span class="co">#33628D,color:#FFF </span></span>
+<span id="cb15-195"><a href="#cb15-195" aria-hidden="true" tabindex="-1"></a>    style B fill:<span class="co">#33628D,color:#FFF</span></span>
+<span id="cb15-196"><a href="#cb15-196" aria-hidden="true" tabindex="-1"></a>    style I fill:<span class="co">#31B57B</span></span>
+<span id="cb15-197"><a href="#cb15-197" aria-hidden="true" tabindex="-1"></a>    style H fill:<span class="co">#31B57B</span></span>
+<span id="cb15-198"><a href="#cb15-198" aria-hidden="true" tabindex="-1"></a>    style DD fill:<span class="co">#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026</span></span>
+<span id="cb15-199"><a href="#cb15-199" aria-hidden="true" tabindex="-1"></a>    style D fill:<span class="co">#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026</span></span>
+<span id="cb15-200"><a href="#cb15-200" aria-hidden="true" tabindex="-1"></a>    style T fill:<span class="co">#f1f2f6,stroke-dasharray: 10 5,stroke:#1b2026</span></span>
+<span id="cb15-201"><a href="#cb15-201" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-202"><a href="#cb15-202" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb15-203"><a href="#cb15-203" aria-hidden="true" tabindex="-1"></a>Next, we need to incorporate the lag features. The main problem is that these values are not known in advance, so the $Sales$ model cannot be applied on the entire dataset at once. </span>
+<span id="cb15-204"><a href="#cb15-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-205"><a href="#cb15-205" aria-hidden="true" tabindex="-1"></a>To solve this issue, we can use the $Sales$ model recursively, adding a single observation of sales and updating the lag features and rolling averages accordingly.</span>
+<span id="cb15-206"><a href="#cb15-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-207"><a href="#cb15-207" aria-hidden="true" tabindex="-1"></a>The main problems:</span>
+<span id="cb15-208"><a href="#cb15-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-209"><a href="#cb15-209" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Modeling sales based on predicted values ($Customers$)</span>
+<span id="cb15-210"><a href="#cb15-210" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Recursive modeling using lags and rolling mean - propagating the error and compounding innacuracies.</span>
+<span id="cb15-211"><a href="#cb15-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-212"><a href="#cb15-212" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2 Random Forests</span></span>
+<span id="cb15-213"><a href="#cb15-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-214"><a href="#cb15-214" aria-hidden="true" tabindex="-1"></a><span class="al">![Schema of bootstrap aggregating](images/tikz_bagging.png)</span>{#fig-static-image}</span>
+<span id="cb15-215"><a href="#cb15-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-216"><a href="#cb15-216" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2.1 Naive Modeling</span></span>
+<span id="cb15-217"><a href="#cb15-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-218"><a href="#cb15-218" aria-hidden="true" tabindex="-1"></a>We can try and compare the naive approach (modeling the $Sales$ without the customers) and the customers + recursion approach.</span>
+<span id="cb15-219"><a href="#cb15-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-222"><a href="#cb15-222" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-223"><a href="#cb15-223" aria-hidden="true" tabindex="-1"></a>ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Customers"</span>, <span class="st">"Date"</span>] </span>
+<span id="cb15-224"><a href="#cb15-224" aria-hidden="true" tabindex="-1"></a>lag_cols <span class="op">=</span> [<span class="st">"SalesLag1"</span>, <span class="st">"SalesLag7"</span>, <span class="st">"RollingMean7"</span>, <span class="st">"SalesLag1Available"</span>, <span class="st">"SalesLag7Available"</span>, <span class="st">"RollingMean7Available"</span>]</span>
+<span id="cb15-225"><a href="#cb15-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-226"><a href="#cb15-226" aria-hidden="true" tabindex="-1"></a>cols_to_select <span class="op">=</span> [col <span class="cf">for</span> col <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> col <span class="kw">not</span> <span class="kw">in</span> ignore_cols <span class="kw">and</span> col <span class="kw">not</span> <span class="kw">in</span> lag_cols]</span>
+<span id="cb15-227"><a href="#cb15-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-228"><a href="#cb15-228" aria-hidden="true" tabindex="-1"></a>x_train_naive <span class="op">=</span> train_set_open.loc[:, cols_to_select]</span>
+<span id="cb15-229"><a href="#cb15-229" aria-hidden="true" tabindex="-1"></a>y_train_naive <span class="op">=</span> train_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb15-230"><a href="#cb15-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-231"><a href="#cb15-231" aria-hidden="true" tabindex="-1"></a>x_val_naive <span class="op">=</span> validation_set_open.loc[:, cols_to_select]</span>
+<span id="cb15-232"><a href="#cb15-232" aria-hidden="true" tabindex="-1"></a>y_val_naive <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb15-233"><a href="#cb15-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-234"><a href="#cb15-234" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> grid_search(param_grid, model_type, x_train, y_train, x_val, y_val, n_jobs, verbose <span class="op">=</span> <span class="va">False</span>):</span>
+<span id="cb15-235"><a href="#cb15-235" aria-hidden="true" tabindex="-1"></a>    keys, values <span class="op">=</span> <span class="bu">zip</span>(<span class="op">*</span>param_grid.items())</span>
+<span id="cb15-236"><a href="#cb15-236" aria-hidden="true" tabindex="-1"></a>    param_combinations <span class="op">=</span> [<span class="bu">dict</span>(<span class="bu">zip</span>(keys, v)) <span class="cf">for</span> v <span class="kw">in</span> itertools.product(<span class="op">*</span>values)]</span>
+<span id="cb15-237"><a href="#cb15-237" aria-hidden="true" tabindex="-1"></a>    results_data <span class="op">=</span> []</span>
+<span id="cb15-238"><a href="#cb15-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-239"><a href="#cb15-239" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, params <span class="kw">in</span> <span class="bu">enumerate</span>(param_combinations):</span>
+<span id="cb15-240"><a href="#cb15-240" aria-hidden="true" tabindex="-1"></a>        model <span class="op">=</span> model_type(</span>
+<span id="cb15-241"><a href="#cb15-241" aria-hidden="true" tabindex="-1"></a>            <span class="op">**</span>params,</span>
+<span id="cb15-242"><a href="#cb15-242" aria-hidden="true" tabindex="-1"></a>            random_state<span class="op">=</span><span class="dv">42</span>,</span>
+<span id="cb15-243"><a href="#cb15-243" aria-hidden="true" tabindex="-1"></a>            n_jobs<span class="op">=</span>n_jobs,</span>
+<span id="cb15-244"><a href="#cb15-244" aria-hidden="true" tabindex="-1"></a>            verbose<span class="op">=</span><span class="dv">0</span></span>
+<span id="cb15-245"><a href="#cb15-245" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb15-246"><a href="#cb15-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-247"><a href="#cb15-247" aria-hidden="true" tabindex="-1"></a>        model.fit(x_train, y_train)</span>
+<span id="cb15-248"><a href="#cb15-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-249"><a href="#cb15-249" aria-hidden="true" tabindex="-1"></a>        y_train_predicted <span class="op">=</span> model.predict(x_train)</span>
+<span id="cb15-250"><a href="#cb15-250" aria-hidden="true" tabindex="-1"></a>        y_val_predicted <span class="op">=</span> model.predict(x_val)</span>
+<span id="cb15-251"><a href="#cb15-251" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb15-252"><a href="#cb15-252" aria-hidden="true" tabindex="-1"></a>        mse_train <span class="op">=</span> mean_squared_error(y_train, y_train_predicted)</span>
+<span id="cb15-253"><a href="#cb15-253" aria-hidden="true" tabindex="-1"></a>        rmse_train <span class="op">=</span> mse_train <span class="op">**</span> <span class="fl">0.5</span></span>
+<span id="cb15-254"><a href="#cb15-254" aria-hidden="true" tabindex="-1"></a>        r2_train <span class="op">=</span> r2_score(y_train, y_train_predicted)</span>
+<span id="cb15-255"><a href="#cb15-255" aria-hidden="true" tabindex="-1"></a>        rmspe_train <span class="op">=</span> rmspe(y_train, y_train_predicted)</span>
+<span id="cb15-256"><a href="#cb15-256" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-257"><a href="#cb15-257" aria-hidden="true" tabindex="-1"></a>        mse_val <span class="op">=</span> mean_squared_error(y_val, y_val_predicted)</span>
+<span id="cb15-258"><a href="#cb15-258" aria-hidden="true" tabindex="-1"></a>        rmse_val <span class="op">=</span> mse_val <span class="op">**</span> <span class="fl">0.5</span></span>
+<span id="cb15-259"><a href="#cb15-259" aria-hidden="true" tabindex="-1"></a>        r2_val <span class="op">=</span> r2_score(y_val, y_val_predicted)</span>
+<span id="cb15-260"><a href="#cb15-260" aria-hidden="true" tabindex="-1"></a>        rmspe_val <span class="op">=</span> rmspe(y_val, y_val_predicted)</span>
+<span id="cb15-261"><a href="#cb15-261" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-262"><a href="#cb15-262" aria-hidden="true" tabindex="-1"></a>        results_entry <span class="op">=</span> params.copy()</span>
+<span id="cb15-263"><a href="#cb15-263" aria-hidden="true" tabindex="-1"></a>        results_entry[<span class="st">"Train_RMSPE"</span>] <span class="op">=</span> rmspe_train</span>
+<span id="cb15-264"><a href="#cb15-264" aria-hidden="true" tabindex="-1"></a>        results_entry[<span class="st">"Val_RMSPE"</span>] <span class="op">=</span> rmspe_val</span>
+<span id="cb15-265"><a href="#cb15-265" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-266"><a href="#cb15-266" aria-hidden="true" tabindex="-1"></a>        results_data.append(results_entry)</span>
+<span id="cb15-267"><a href="#cb15-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-268"><a href="#cb15-268" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> verbose:</span>
+<span id="cb15-269"><a href="#cb15-269" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"==== TRAINING ==== (</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb15-270"><a href="#cb15-270" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train RMSE: </span><span class="sc">{</span>rmse_train<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb15-271"><a href="#cb15-271" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train R²: </span><span class="sc">{</span>r2_train<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb15-272"><a href="#cb15-272" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Train RMSPE: </span><span class="sc">{</span>rmspe_train<span class="sc">:.4f}</span><span class="ss"> (</span><span class="sc">{</span>rmspe_train<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">%)"</span>)</span>
+<span id="cb15-273"><a href="#cb15-273" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"==== TRAINING ===="</span>)</span>
+<span id="cb15-274"><a href="#cb15-274" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>()</span>
+<span id="cb15-275"><a href="#cb15-275" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-276"><a href="#cb15-276" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"==== VALIDATION ==== (</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb15-277"><a href="#cb15-277" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation RMSE: </span><span class="sc">{</span>rmse_val<span class="sc">:.2f}</span><span class="ss">"</span>)</span>
+<span id="cb15-278"><a href="#cb15-278" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation R²: </span><span class="sc">{</span>r2_val<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb15-279"><a href="#cb15-279" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Validation RMSPE: </span><span class="sc">{</span>rmspe_val<span class="sc">:.4f}</span><span class="ss"> (</span><span class="sc">{</span>rmspe_val<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">%)"</span>)</span>
+<span id="cb15-280"><a href="#cb15-280" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="st">"==== VALIDATION ===="</span>)</span>
+<span id="cb15-281"><a href="#cb15-281" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb15-282"><a href="#cb15-282" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"(</span><span class="sc">{</span>i<span class="op">+</span><span class="dv">1</span><span class="sc">}</span><span class="ss">/</span><span class="sc">{</span><span class="bu">len</span>(param_combinations)<span class="sc">}</span><span class="ss">)"</span>)</span>
+<span id="cb15-283"><a href="#cb15-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-284"><a href="#cb15-284" aria-hidden="true" tabindex="-1"></a>    results_df <span class="op">=</span> pd.DataFrame(results_data)</span>
+<span id="cb15-285"><a href="#cb15-285" aria-hidden="true" tabindex="-1"></a>    results_df <span class="op">=</span> results_df.sort_values(by<span class="op">=</span><span class="st">"Val_RMSPE"</span>, ascending<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb15-286"><a href="#cb15-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-287"><a href="#cb15-287" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> verbose:</span>
+<span id="cb15-288"><a href="#cb15-288" aria-hidden="true" tabindex="-1"></a>        display(results_df.head(<span class="dv">5</span>))</span>
+<span id="cb15-289"><a href="#cb15-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-290"><a href="#cb15-290" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results_df</span>
+<span id="cb15-291"><a href="#cb15-291" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-292"><a href="#cb15-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-293"><a href="#cb15-293" aria-hidden="true" tabindex="-1"></a>For tuning hyperparameters we will utilize a simple grid-search approach, comparing the training and validation RMSPE errors and selecting the ideal model with the smallest ones.</span>
+<span id="cb15-294"><a href="#cb15-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-297"><a href="#cb15-297" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-298"><a href="#cb15-298" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb15-299"><a href="#cb15-299" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: true</span></span>
+<span id="cb15-300"><a href="#cb15-300" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: false</span></span>
+<span id="cb15-301"><a href="#cb15-301" aria-hidden="true" tabindex="-1"></a>param_grid_naive <span class="op">=</span> {</span>
+<span id="cb15-302"><a href="#cb15-302" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">100</span>, <span class="dv">200</span>],</span>
+<span id="cb15-303"><a href="#cb15-303" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">50</span>, <span class="va">None</span>],</span>
+<span id="cb15-304"><a href="#cb15-304" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>, <span class="dv">1</span>],</span>
+<span id="cb15-305"><a href="#cb15-305" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>, <span class="dv">1</span>]</span>
+<span id="cb15-306"><a href="#cb15-306" aria-hidden="true" tabindex="-1"></a>    <span class="co">#"min_samples_split": [2, 5, 10],</span></span>
+<span id="cb15-307"><a href="#cb15-307" aria-hidden="true" tabindex="-1"></a>    <span class="co">#"min_samples_leaf": [1, 2, 4]</span></span>
+<span id="cb15-308"><a href="#cb15-308" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-309"><a href="#cb15-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-310"><a href="#cb15-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-311"><a href="#cb15-311" aria-hidden="true" tabindex="-1"></a><span class="co"># These models do NOT use the customers to predict the sales</span></span>
+<span id="cb15-312"><a href="#cb15-312" aria-hidden="true" tabindex="-1"></a>results_naive <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_naive,</span>
+<span id="cb15-313"><a href="#cb15-313" aria-hidden="true" tabindex="-1"></a>                            model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb15-314"><a href="#cb15-314" aria-hidden="true" tabindex="-1"></a>                            x_train<span class="op">=</span>x_train_naive,</span>
+<span id="cb15-315"><a href="#cb15-315" aria-hidden="true" tabindex="-1"></a>                            y_train<span class="op">=</span>y_train_naive,</span>
+<span id="cb15-316"><a href="#cb15-316" aria-hidden="true" tabindex="-1"></a>                            x_val<span class="op">=</span>x_val_naive,</span>
+<span id="cb15-317"><a href="#cb15-317" aria-hidden="true" tabindex="-1"></a>                            y_val<span class="op">=</span>y_val_naive,</span>
+<span id="cb15-318"><a href="#cb15-318" aria-hidden="true" tabindex="-1"></a>                            n_jobs<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb15-319"><a href="#cb15-319" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-320"><a href="#cb15-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-321"><a href="#cb15-321" aria-hidden="true" tabindex="-1"></a>Best performing models with these parameter combinations:</span>
+<span id="cb15-324"><a href="#cb15-324" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-325"><a href="#cb15-325" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb15-326"><a href="#cb15-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-327"><a href="#cb15-327" aria-hidden="true" tabindex="-1"></a>results_naive <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/sales_naive_randomforest_grid.csv"</span>)</span>
+<span id="cb15-328"><a href="#cb15-328" aria-hidden="true" tabindex="-1"></a>display(results_naive.head(<span class="dv">4</span>))</span>
+<span id="cb15-329"><a href="#cb15-329" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-330"><a href="#cb15-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-331"><a href="#cb15-331" aria-hidden="true" tabindex="-1"></a>And the worst ones:</span>
+<span id="cb15-334"><a href="#cb15-334" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-335"><a href="#cb15-335" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb15-336"><a href="#cb15-336" aria-hidden="true" tabindex="-1"></a>display(results_naive.tail(<span class="dv">4</span>))</span>
+<span id="cb15-337"><a href="#cb15-337" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-338"><a href="#cb15-338" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-339"><a href="#cb15-339" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2.2 Recursive Modeling</span></span>
+<span id="cb15-340"><a href="#cb15-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-343"><a href="#cb15-343" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-344"><a href="#cb15-344" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb15-345"><a href="#cb15-345" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-346"><a href="#cb15-346" aria-hidden="true" tabindex="-1"></a>results_cust <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/customers_recursive_randomforest_grid_small.csv"</span>)</span>
+<span id="cb15-347"><a href="#cb15-347" aria-hidden="true" tabindex="-1"></a>results_sales <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/sales_recursive_randomforest_grid_small.csv"</span>)</span>
+<span id="cb15-348"><a href="#cb15-348" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-349"><a href="#cb15-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-352"><a href="#cb15-352" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-353"><a href="#cb15-353" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb15-354"><a href="#cb15-354" aria-hidden="true" tabindex="-1"></a>cust_ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Customers"</span>, <span class="st">"Date"</span>]</span>
+<span id="cb15-355"><a href="#cb15-355" aria-hidden="true" tabindex="-1"></a>sales_ignore_cols <span class="op">=</span> [<span class="st">"Sales"</span>, <span class="st">"Date"</span>]</span>
+<span id="cb15-356"><a href="#cb15-356" aria-hidden="true" tabindex="-1"></a>lag_cols <span class="op">=</span> [<span class="st">"SalesLag1"</span>, <span class="st">"SalesLag7"</span>, <span class="st">"RollingMean7"</span>, <span class="st">"SalesLag1Available"</span>, <span class="st">"SalesLag7Available"</span>, <span class="st">"RollingMean7Available"</span>]</span>
+<span id="cb15-357"><a href="#cb15-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-358"><a href="#cb15-358" aria-hidden="true" tabindex="-1"></a>cols_to_select_cust <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> c <span class="kw">not</span> <span class="kw">in</span> cust_ignore_cols <span class="kw">and</span> c <span class="kw">not</span> <span class="kw">in</span> lag_cols]</span>
+<span id="cb15-359"><a href="#cb15-359" aria-hidden="true" tabindex="-1"></a>cols_to_select_sales <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> train_set_open.columns <span class="cf">if</span> c <span class="kw">not</span> <span class="kw">in</span> sales_ignore_cols]</span>
+<span id="cb15-360"><a href="#cb15-360" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-361"><a href="#cb15-361" aria-hidden="true" tabindex="-1"></a>x_train_cust <span class="op">=</span> train_set_open[cols_to_select_cust]</span>
+<span id="cb15-362"><a href="#cb15-362" aria-hidden="true" tabindex="-1"></a>y_train_cust <span class="op">=</span> train_set_open.loc[:, <span class="st">"Customers"</span>]</span>
+<span id="cb15-363"><a href="#cb15-363" aria-hidden="true" tabindex="-1"></a>x_val_cust <span class="op">=</span> validation_set_open[cols_to_select_cust]</span>
+<span id="cb15-364"><a href="#cb15-364" aria-hidden="true" tabindex="-1"></a>y_val_cust <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Customers"</span>]</span>
+<span id="cb15-365"><a href="#cb15-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-366"><a href="#cb15-366" aria-hidden="true" tabindex="-1"></a>x_train_sales <span class="op">=</span> train_set_open[cols_to_select_sales]</span>
+<span id="cb15-367"><a href="#cb15-367" aria-hidden="true" tabindex="-1"></a>y_train_sales <span class="op">=</span> train_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb15-368"><a href="#cb15-368" aria-hidden="true" tabindex="-1"></a>x_val_sales <span class="op">=</span> validation_set_open[cols_to_select_sales]</span>
+<span id="cb15-369"><a href="#cb15-369" aria-hidden="true" tabindex="-1"></a>y_val_sales <span class="op">=</span> validation_set_open.loc[:, <span class="st">"Sales"</span>]</span>
+<span id="cb15-370"><a href="#cb15-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-371"><a href="#cb15-371" aria-hidden="true" tabindex="-1"></a>param_grid_cust <span class="op">=</span> {</span>
+<span id="cb15-372"><a href="#cb15-372" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">50</span>, <span class="dv">100</span>],</span>
+<span id="cb15-373"><a href="#cb15-373" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">50</span>],</span>
+<span id="cb15-374"><a href="#cb15-374" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>],</span>
+<span id="cb15-375"><a href="#cb15-375" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>]</span>
+<span id="cb15-376"><a href="#cb15-376" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-377"><a href="#cb15-377" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-378"><a href="#cb15-378" aria-hidden="true" tabindex="-1"></a>results_cust <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_cust,</span>
+<span id="cb15-379"><a href="#cb15-379" aria-hidden="true" tabindex="-1"></a>                           model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb15-380"><a href="#cb15-380" aria-hidden="true" tabindex="-1"></a>                           x_train<span class="op">=</span>x_train_cust,</span>
+<span id="cb15-381"><a href="#cb15-381" aria-hidden="true" tabindex="-1"></a>                           y_train<span class="op">=</span>y_train_cust,</span>
+<span id="cb15-382"><a href="#cb15-382" aria-hidden="true" tabindex="-1"></a>                           x_val<span class="op">=</span>x_val_cust,</span>
+<span id="cb15-383"><a href="#cb15-383" aria-hidden="true" tabindex="-1"></a>                           y_val<span class="op">=</span>y_val_cust,</span>
+<span id="cb15-384"><a href="#cb15-384" aria-hidden="true" tabindex="-1"></a>                           n_jobs<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb15-385"><a href="#cb15-385" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-386"><a href="#cb15-386" aria-hidden="true" tabindex="-1"></a>param_grid_sales <span class="op">=</span> {</span>
+<span id="cb15-387"><a href="#cb15-387" aria-hidden="true" tabindex="-1"></a>    <span class="st">"n_estimators"</span>: [<span class="dv">50</span>, <span class="dv">100</span>],</span>
+<span id="cb15-388"><a href="#cb15-388" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_depth"</span>: [<span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">50</span>],</span>
+<span id="cb15-389"><a href="#cb15-389" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_samples"</span>: [<span class="fl">0.6</span>, <span class="fl">0.8</span>],</span>
+<span id="cb15-390"><a href="#cb15-390" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_features"</span>: [<span class="fl">0.5</span>, <span class="st">"sqrt"</span>]</span>
+<span id="cb15-391"><a href="#cb15-391" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb15-392"><a href="#cb15-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-393"><a href="#cb15-393" aria-hidden="true" tabindex="-1"></a>results_sales <span class="op">=</span> grid_search(param_grid<span class="op">=</span>param_grid_sales,</span>
+<span id="cb15-394"><a href="#cb15-394" aria-hidden="true" tabindex="-1"></a>                            model_type<span class="op">=</span>RandomForestRegressor,</span>
+<span id="cb15-395"><a href="#cb15-395" aria-hidden="true" tabindex="-1"></a>                            x_train<span class="op">=</span>x_train_sales,</span>
+<span id="cb15-396"><a href="#cb15-396" aria-hidden="true" tabindex="-1"></a>                            y_train<span class="op">=</span>y_train_sales,</span>
+<span id="cb15-397"><a href="#cb15-397" aria-hidden="true" tabindex="-1"></a>                            x_val<span class="op">=</span>x_val_sales,</span>
+<span id="cb15-398"><a href="#cb15-398" aria-hidden="true" tabindex="-1"></a>                            y_val<span class="op">=</span>y_val_sales,</span>
+<span id="cb15-399"><a href="#cb15-399" aria-hidden="true" tabindex="-1"></a>                            n_jobs<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb15-400"><a href="#cb15-400" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-401"><a href="#cb15-401" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-402"><a href="#cb15-402" aria-hidden="true" tabindex="-1"></a>For the resursive modeling, we need to optimize the hyperparameters of two distinct models. The first one being the classic $Customers$ model:</span>
+<span id="cb15-403"><a href="#cb15-403" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-406"><a href="#cb15-406" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-407"><a href="#cb15-407" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb15-408"><a href="#cb15-408" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-409"><a href="#cb15-409" aria-hidden="true" tabindex="-1"></a>BEST_STYLE <span class="op">=</span> <span class="ss">f'background-color: #32648e; font-weight: bold; color: white'</span></span>
+<span id="cb15-410"><a href="#cb15-410" aria-hidden="true" tabindex="-1"></a>SHOWCASE_STYLE <span class="op">=</span> <span class="ss">f'background-color: #21918c; font-weight: bold; color: white'</span></span>
+<span id="cb15-411"><a href="#cb15-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-412"><a href="#cb15-412" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> apply_style(series, style_css):</span>
+<span id="cb15-413"><a href="#cb15-413" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [style_css] <span class="op">*</span> <span class="bu">len</span>(series)</span>
+<span id="cb15-414"><a href="#cb15-414" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-415"><a href="#cb15-415" aria-hidden="true" tabindex="-1"></a>styled_df <span class="op">=</span> results_cust.head(<span class="dv">4</span>).reset_index(drop<span class="op">=</span><span class="va">True</span>).style</span>
+<span id="cb15-416"><a href="#cb15-416" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-417"><a href="#cb15-417" aria-hidden="true" tabindex="-1"></a>styled_df <span class="op">=</span> styled_df.<span class="bu">apply</span>(</span>
+<span id="cb15-418"><a href="#cb15-418" aria-hidden="true" tabindex="-1"></a>    apply_style, </span>
+<span id="cb15-419"><a href="#cb15-419" aria-hidden="true" tabindex="-1"></a>    axis<span class="op">=</span><span class="dv">1</span>, </span>
+<span id="cb15-420"><a href="#cb15-420" aria-hidden="true" tabindex="-1"></a>    style_css<span class="op">=</span>BEST_STYLE,</span>
+<span id="cb15-421"><a href="#cb15-421" aria-hidden="true" tabindex="-1"></a>    subset<span class="op">=</span>([<span class="dv">0</span>], <span class="bu">slice</span>(<span class="va">None</span>))</span>
+<span id="cb15-422"><a href="#cb15-422" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-423"><a href="#cb15-423" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-424"><a href="#cb15-424" aria-hidden="true" tabindex="-1"></a>styled_df <span class="op">=</span> styled_df.<span class="bu">apply</span>(</span>
+<span id="cb15-425"><a href="#cb15-425" aria-hidden="true" tabindex="-1"></a>    apply_style, </span>
+<span id="cb15-426"><a href="#cb15-426" aria-hidden="true" tabindex="-1"></a>    axis<span class="op">=</span><span class="dv">1</span>, </span>
+<span id="cb15-427"><a href="#cb15-427" aria-hidden="true" tabindex="-1"></a>    style_css<span class="op">=</span>SHOWCASE_STYLE,</span>
+<span id="cb15-428"><a href="#cb15-428" aria-hidden="true" tabindex="-1"></a>    subset<span class="op">=</span>([<span class="dv">1</span>], <span class="bu">slice</span>(<span class="va">None</span>))</span>
+<span id="cb15-429"><a href="#cb15-429" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb15-430"><a href="#cb15-430" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb15-431"><a href="#cb15-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-432"><a href="#cb15-432" aria-hidden="true" tabindex="-1"></a>display(styled_df)</span>
+<span id="cb15-433"><a href="#cb15-433" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-434"><a href="#cb15-434" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-435"><a href="#cb15-435" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">br</span><span class="dt">&gt;</span></span>
+<span id="cb15-436"><a href="#cb15-436" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-437"><a href="#cb15-437" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">div</span><span class="ot"> style</span><span class="op">=</span><span class="st">"display: flex; gap: 0; padding: 0; margin: 0;"</span><span class="dt">&gt;</span></span>
+<span id="cb15-438"><a href="#cb15-438" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">"images/tree_depths_cust_rf_best.png"</span><span class="ot"> style</span><span class="op">=</span><span class="st">"width: 49%; padding: 0; margin: 0; border: none;"</span><span class="dt">&gt;</span></span>
+<span id="cb15-439"><a href="#cb15-439" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">"images/tree_depths_cust_rf_showcase.png"</span><span class="ot"> style</span><span class="op">=</span><span class="st">"width: 49%; padding: 0; margin: 0; border: none;"</span><span class="dt">&gt;</span></span>
+<span id="cb15-440"><a href="#cb15-440" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;/</span><span class="kw">div</span><span class="dt">&gt;</span></span>
+<span id="cb15-441"><a href="#cb15-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-442"><a href="#cb15-442" aria-hidden="true" tabindex="-1"></a>Both of the tables show a very unusual situation, where the training error is actually higher than the validation error. This can happen because the validation set is very small, so the model finds it considerably easier to predict values there, compared to the training set with full yearly seasonality.</span>
+<span id="cb15-443"><a href="#cb15-443" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-446"><a href="#cb15-446" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-447"><a href="#cb15-447" aria-hidden="true" tabindex="-1"></a><span class="co">#| echo: false</span></span>
+<span id="cb15-448"><a href="#cb15-448" aria-hidden="true" tabindex="-1"></a>display(results_cust.tail(<span class="dv">4</span>))</span>
+<span id="cb15-449"><a href="#cb15-449" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-450"><a href="#cb15-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-451"><a href="#cb15-451" aria-hidden="true" tabindex="-1"></a><span class="al">![A small slice of the first tree in the forest](images/cust_rf_tree.png)</span>{#fig-static-image2}</span>
+<span id="cb15-452"><a href="#cb15-452" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-453"><a href="#cb15-453" aria-hidden="true" tabindex="-1"></a>And the second one being the recursive $Sales$ one. does _not_ change how the model is trained, as the training dataset contains the actual customers and lags.</span>
+<span id="cb15-454"><a href="#cb15-454" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-457"><a href="#cb15-457" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb15-458"><a href="#cb15-458" aria-hidden="true" tabindex="-1"></a>customers_best_params_rf <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/customers_recursive_randomforest_grid_small.csv"</span>).iloc[<span class="dv">2</span>, <span class="dv">0</span>:<span class="dv">4</span>].to_dict()</span>
+<span id="cb15-459"><a href="#cb15-459" aria-hidden="true" tabindex="-1"></a>sales_best_params_rf <span class="op">=</span> pd.read_csv(<span class="st">"../outputs/sales_recursive_randomforest_grid_small.csv"</span>).iloc[<span class="dv">2</span>, <span class="dv">0</span>:<span class="dv">4</span>].to_dict()</span>
+<span id="cb15-460"><a href="#cb15-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-461"><a href="#cb15-461" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> params <span class="kw">in</span> (customers_best_params_rf, sales_best_params_rf):</span>
+<span id="cb15-462"><a href="#cb15-462" aria-hidden="true" tabindex="-1"></a>    params[<span class="st">"max_depth"</span>] <span class="op">=</span> <span class="bu">int</span>(params[<span class="st">"max_depth"</span>])</span>
+<span id="cb15-463"><a href="#cb15-463" aria-hidden="true" tabindex="-1"></a>    params[<span class="st">"max_features"</span>] <span class="op">=</span> <span class="bu">float</span>(params[<span class="st">"max_features"</span>])</span>
+<span id="cb15-464"><a href="#cb15-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-465"><a href="#cb15-465" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cust"</span>, customers_best_params_rf)</span>
+<span id="cb15-466"><a href="#cb15-466" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Sales"</span>, sales_best_params_rf)</span>
+<span id="cb15-467"><a href="#cb15-467" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb15-468"><a href="#cb15-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-469"><a href="#cb15-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-470"><a href="#cb15-470" aria-hidden="true" tabindex="-1"></a><span class="fu"># 3 Gradient Boosting - LightGBM</span></span>
+<span id="cb15-471"><a href="#cb15-471" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-472"><a href="#cb15-472" aria-hidden="true" tabindex="-1"></a><span class="fu"># 4 Neural Networks - classic MLP</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
