@@ -1,6 +1,7 @@
 # Manual additions
 train_clean.pkl
-
+.quarto
+_extensions
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

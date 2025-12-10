@@ -43,14 +43,16 @@ from sklearn.preprocessing import StandardScaler
 
 vir_col = plt.get_cmap("viridis")
 plt.style.use("ggplot")
-plt.rcParams['text.color'] = 'black'
-plt.rcParams['axes.labelcolor'] = 'black'
-plt.rcParams['xtick.color'] = 'black'
-plt.rcParams['ytick.color'] = 'black'
-plt.rcParams['axes.edgecolor'] = 'black'
+plt.rcParams["text.color"] = "black"
+plt.rcParams["axes.labelcolor"] = "black"
+plt.rcParams["xtick.color"] = "black"
+plt.rcParams["ytick.color"] = "black"
+plt.rcParams["axes.edgecolor"] = "black"
 ```
 
-# 1 Model Selection
+# 3 Modeling
+
+## 3.1 Model Selection
 
 We compare three models in our analysis:
 
@@ -63,7 +65,7 @@ $$ \text{RMSPE}(\mathbf{y}, \mathbf{\widehat{y}}) = \sqrt{\frac{1}{n} \sum_{i=1}
 
 The best achieved performance on this dataset was $\text{RMSPE} \approx 0.10$. We keep this benchmark in mind when comparing our own models.
 
-## 1.1 Data Preparation (again)
+### 3.1.1 Data Preparation (again)
 
 Due to autocorrelation, it is useful to include recent sales information (along with their corresponding dummy availability variables):
 
@@ -151,7 +153,7 @@ def rmspe(y_true, y_pred):
 dataset.loc[dataset.Store == 1, :].head(5)
 ```
 
-## 1.2 Modeling Approach
+### 3.1.2 Modeling Approach
 
 The true testing set is missing not only the target $Sales$ but also the customer count. One option would be to model $Sales$
 directly and let the model accurately predict customer effect. In our approach however, we model the customers individually first, and only after getting the customers values, predict the true sales with a $Sales$ model that utilizes customer count.
@@ -202,11 +204,11 @@ The main problems:
 - Modeling sales based on predicted values ($Customers$)
 - Recursive modeling using lags and rolling mean - propagating the error and compounding innacuracies.
 
-# 2 Random Forests
+## 3.2 Random Forests
 
 ![Schema of bootstrap aggregating](images/tikz_bagging.png){#fig-static-image}
 
-# 2.1 Naive Modeling
+### 3.2.1 Naive Modeling
 
 We can try and compare the naive approach (modeling the $Sales$ without the customers) and the customers + recursion approach.
 
@@ -321,7 +323,7 @@ And the worst ones:
 display(results_naive.tail(4))
 ```
 
-# 2.2 Recursive Modeling
+### 3.2.2 Recursive Modeling
 
 ```{python}
 #| echo: false
@@ -385,8 +387,8 @@ For the resursive modeling, we need to optimize the hyperparameters of two disti
 ```{python}
 #| echo: false
 
-BEST_STYLE = f'background-color: #32648e; font-weight: bold; color: white'
-SHOWCASE_STYLE = f'background-color: #21918c; font-weight: bold; color: white'
+BEST_STYLE = f"background-color: #32648e; font-weight: bold; color: white"
+SHOWCASE_STYLE = f"background-color: #21918c; font-weight: bold; color: white"
 
 def apply_style(series, style_css):
     return [style_css] * len(series)
@@ -427,21 +429,560 @@ display(results_cust.tail(4))
 
 ![A small slice of the first tree in the forest](images/cust_rf_tree.png){#fig-static-image2}
 
-And the second one being the recursive $Sales$ one. does _not_ change how the model is trained, as the training dataset contains the actual customers and lags.
+<br> 
+
+The second model is the recursive $Sales$ one. This setup does _not_ change how the model is trained, since the training dataset includes the actual customers and lags. The fitted model processes the data row by row, allowing it to be used in any way that we deem fit.
 
 ```{python}
+#| echo: false
+
+display(results_sales.head(4))
+
 customers_best_params_rf = pd.read_csv("../outputs/customers_recursive_randomforest_grid_small.csv").iloc[2, 0:4].to_dict()
 sales_best_params_rf = pd.read_csv("../outputs/sales_recursive_randomforest_grid_small.csv").iloc[2, 0:4].to_dict()
 
 for params in (customers_best_params_rf, sales_best_params_rf):
     params["max_depth"] = int(params["max_depth"])
     params["max_features"] = float(params["max_features"])
-
-print("Cust", customers_best_params_rf)
-print("Sales", sales_best_params_rf)
 ```
 
+It is important to note the gap between the best naive error $\text{RMSPE}_{naive}^{val} = 0.1431$ and the performance of the model which incorporates customers and time variables, with $\text{RMSPE}_{recur}^{val} = 0.0913$.
 
-# 3 Gradient Boosting - LightGBM
+The final models used for the modeling have these hyperparameters (we chose the 3rd sales model from the table, as it was less memory-heavy):
 
-# 4 Neural Networks - classic MLP
+```{python}
+#| eval: false
+
+def recursive_predict_sales_only(model_sales, train_data, test_data, sales_feats):
+    
+    working_df = test_data.copy().sort_values(["Date", "Store"])
+    
+    # Setup History
+    req_cols = list(set(sales_feats + ["Store", "Date", "Sales"]))
+    history = train_data[req_cols].copy()
+    history = history.sort_values(["Store", "Date"])
+    
+    unique_dates = working_df["Date"].unique()
+    unique_dates = np.sort(unique_dates)
+    final_predictions = []
+    
+    for current_date in unique_dates:
+        todays_slice = working_df[working_df["Date"] == current_date].copy()
+        active_stores = todays_slice["Store"].unique()
+        
+        recent_history = history[
+            (history["Store"].isin(active_stores)) & 
+            (history["Date"] >= current_date - pd.Timedelta(days=8)) &
+            (history["Date"] < current_date)
+        ]
+        
+        calc_df = pd.concat([recent_history, todays_slice], axis=0, ignore_index=True)
+        calc_df = calc_df.sort_values(["Store", "Date"])
+        
+        calc_df["SalesLag1"] = calc_df.groupby("Store")["Sales"].shift(1)
+        calc_df["SalesLag7"] = calc_df.groupby("Store")["Sales"].shift(7)
+        calc_df["RollingMean7"] = calc_df.groupby("Store")["Sales"].rolling(7).mean().shift(1).reset_index(level=0, drop=True)
+        
+        X_today = calc_df[calc_df["Date"] == current_date].copy()
+        
+        X_today["SalesLag1Available"] = ~X_today["SalesLag1"].isna() * 1
+        X_today["SalesLag7Available"] = ~X_today["SalesLag7"].isna() * 1
+        X_today["RollingMean7Available"] = ~X_today["RollingMean7"].isna() * 1
+        X_today = X_today.fillna(0)
+        
+        # calculate todays values
+        X_today_feats = X_today[sales_feats]
+        
+        sales_preds = model_sales.predict(X_today_feats)
+        
+        if "Open" in X_today.columns:
+            sales_preds[X_today["Open"] == 0] = 0
+        
+        # update
+        X_today_result = X_today.copy()
+        X_today_result["Sales"] = sales_preds
+        
+        update_packet = X_today_result[req_cols]
+        history = pd.concat([history, update_packet], axis=0, ignore_index=True)
+        
+        final_predictions.append(X_today_result[["Store", "Date", "Sales"]])
+        
+    final_df = pd.concat(final_predictions, axis=0)
+    return final_df
+
+
+
+
+recursive_train_set = train_set.copy()
+recursive_validation_set = validation_set.copy()
+
+recursive_training_df = pd.concat([recursive_train_set, 
+                                   recursive_validation_set], axis = 0).sort_values(["Store", "Date"])
+recursive_test_df = test_set.copy().sort_values(["Store", "Date"])
+
+
+# This gets the best parameters based on the naive grid search for customers only
+model_cust = RandomForestRegressor(**customers_best_params_rf, 
+                                   n_jobs=4, 
+                                   random_state=42,
+                                   verbose=0)
+model_cust.fit(recursive_training_df.loc[recursive_training_df["Open"] == 1, cols_to_select_cust], 
+               recursive_training_df.loc[recursive_training_df["Open"] == 1, "Customers"])
+gc.collect()
+
+# This gets the best parameters with actual sales values
+model_sales = RandomForestRegressor(**sales_best_params_rf, 
+                                    n_jobs=4, 
+                                    random_state=42,
+                                    verbose=0)
+model_sales.fit(recursive_training_df.loc[recursive_training_df["Open"] == 1, cols_to_select_sales], 
+                recursive_training_df.loc[recursive_training_df["Open"] == 1, "Sales"])
+gc.collect()
+
+
+
+test_cust_preds = model_cust.predict(recursive_test_df.loc[recursive_test_df["Open"] == 1, cols_to_select_cust])
+test_cust_rmspe_open = rmspe(recursive_test_df.loc[recursive_test_df["Open"] == 1, "Customers"], test_cust_preds)
+
+print(f"Customers only, open stores RMSPE is: {test_cust_rmspe_open:.4f}.")
+
+recursive_test_df.loc[recursive_test_df["Open"] == 0, "Customers"] = 0
+recursive_test_df.loc[recursive_test_df["Open"] == 1, "Customers"] = np.round(test_cust_preds)
+
+val_results = recursive_predict_sales_only(
+    model_sales, 
+    recursive_training_df,
+    recursive_test_df,
+    cols_to_select_sales
+)
+
+score = rmspe(val_results.sort_values(["Store", "Date"])["Sales"], recursive_test_df["Sales"])
+print(f"Final test sales RMSPE: {score:.4f}")
+```
+
+```{python}
+#| echo: false
+
+final_results_rf = {k: [customers_best_params_rf[k], sales_best_params_rf[k]] for k in customers_best_params_rf}
+final_results_rf = pd.DataFrame(final_results_rf)
+final_results_rf["Test_RMSPE"] = [0.1236, 0.1406]
+final_results_rf["Description"] = ["Customers only", "Final sales"]
+display(final_results_rf)
+```
+
+The final model is performing decently with an error of $\text{RMSPE}^{test}_{recur} = 0.1406$, which can be treated as a hypothetical baseline for the models that follow.
+
+## 3.3 Gradient Boosting - LightGBM
+
+```{python}
+#| echo: false
+#| 
+def grid_search_log(param_grid, model_type, x_train, y_train, x_val, y_val, n_jobs, verbose = False):
+    keys, values = zip(*param_grid.items())
+    param_combinations = [dict(zip(keys, v)) for v in itertools.product(*values)]
+    results_data = []
+
+    for i, params in enumerate(param_combinations):
+        model = model_type(
+            **params,
+            random_state=42,
+            n_jobs=n_jobs,
+            verbose=0
+        )
+
+        model.fit(x_train, y_train)
+
+        y_train_predicted = model.predict(x_train)
+        y_val_predicted = model.predict(x_val)
+        
+        mse_train = mean_squared_error(y_train, y_train_predicted)
+        rmse_train = mse_train ** 0.5
+        r2_train = r2_score(y_train, y_train_predicted)
+        rmspe_train = rmspe(np.expm1(y_train), np.expm1(y_train_predicted))
+
+        mse_val = mean_squared_error(y_val, y_val_predicted)
+        rmse_val = mse_val ** 0.5
+        r2_val = r2_score(y_val, y_val_predicted)
+        rmspe_val = rmspe(np.expm1(y_val), np.expm1(y_val_predicted))
+
+        results_entry = params.copy()
+        results_entry["Train_RMSPE"] = rmspe_train
+        results_entry["Val_RMSPE"] = rmspe_val
+
+        results_data.append(results_entry)
+
+        if verbose:
+            print(f"==== TRAINING ==== ({i+1}/{len(param_combinations)})")
+            print(f"Train RMSE: {rmse_train:.2f}")
+            print(f"Train R²: {r2_train:.3f}")
+            print(f"Train RMSPE: {rmspe_train:.4f} ({rmspe_train*100:.2f}%)")
+            print("==== TRAINING ====")
+            print()
+
+            print(f"==== VALIDATION ==== ({i+1}/{len(param_combinations)})")
+            print(f"Validation RMSE: {rmse_val:.2f}")
+            print(f"Validation R²: {r2_val:.3f}")
+            print(f"Validation RMSPE: {rmspe_val:.4f} ({rmspe_val*100:.2f}%)")
+            print("==== VALIDATION ====")
+        else:
+            print(f"({i+1}/{len(param_combinations)})")
+
+    results_df = pd.DataFrame(results_data)
+    results_df = results_df.sort_values(by="Val_RMSPE", ascending=True)
+
+    if verbose:
+        display(results_df.head(5))
+
+    return results_df
+
+
+def recursive_predict_sales_only_log(model_sales, train_data, test_data, sales_feats):
+    
+    working_df = test_data.copy().sort_values(["Date", "Store"])
+    
+    # Setup History
+    req_cols = list(set(sales_feats + ["Store", "Date", "Sales"])) # Ensure Open is here
+    history = train_data[req_cols].copy()
+    history = history.sort_values(["Store", "Date"])
+    
+    unique_dates = working_df["Date"].unique()
+    unique_dates = np.sort(unique_dates)
+    final_predictions = []
+    
+    for current_date in unique_dates:
+        todays_slice = working_df[working_df["Date"] == current_date].copy()
+        
+        # --- A. CALCULATE LAGS (Unchanged) ---
+        active_stores = todays_slice["Store"].unique()
+        
+        recent_history = history[
+            (history["Store"].isin(active_stores)) & 
+            (history["Date"] >= current_date - pd.Timedelta(days=15)) &
+            (history["Date"] < current_date)
+        ]
+        
+        calc_df = pd.concat([recent_history, todays_slice], axis=0, ignore_index=True)
+        calc_df = calc_df.sort_values(["Store", "Date"])
+        
+        calc_df["SalesLag1"] = calc_df.groupby("Store")["Sales"].shift(1)
+        calc_df["SalesLag7"] = calc_df.groupby("Store")["Sales"].shift(7)
+        calc_df["RollingMean7"] = calc_df.groupby("Store")["Sales"].rolling(7).mean().shift(1).reset_index(level=0, drop=True)
+        
+        X_today = calc_df[calc_df["Date"] == current_date].copy()
+        
+        X_today["SalesLag1Available"] = ~X_today["SalesLag1"].isna() * 1
+        X_today["SalesLag7Available"] = ~X_today["SalesLag7"].isna() * 1
+        X_today["RollingMean7Available"] = ~X_today["RollingMean7"].isna() * 1
+        X_today = X_today.fillna(0)
+        
+        # --- B. PREDICT SALES ---
+        X_today_feats = X_today[sales_feats]
+        
+        # 1. Get Log Predictions
+        sales_preds = np.expm1(model_sales.predict(X_today_feats))
+        
+        if "Open" in X_today.columns:
+             sales_preds[X_today["Open"] == 0] = 0
+        
+        # --- C. UPDATE HISTORY ---
+        X_today_result = X_today.copy()
+        X_today_result["Sales"] = sales_preds # Now saving REAL numbers
+        
+        update_packet = X_today_result[req_cols]
+        history = pd.concat([history, update_packet], axis=0, ignore_index=True)
+        
+        final_predictions.append(X_today_result[["Store", "Date", "Sales"]])
+        
+    final_df = pd.concat(final_predictions, axis=0)
+    return final_df
+```
+
+Gradient boosting algorithms offer a modern and highly effective way to utilize decision trees in machine learning. They are significantly more lightweight compared to random forests, much faster and tend to deliver much better results compared to random forests. The most popular algorithms (for regression) are __XGBoost__ and __LightGBM__.
+
+We decided to use the LightGBM due to it's higher efficiency (mainly less memory usage).
+```{python}
+#| eval: false
+#| echo: true
+#| code-fold: false
+lgbm_param_grid_cust = {
+    "n_estimators": [500, 1000],
+    "learning_rate": [0.01, 0.05, 0.1],
+    "num_leaves": [15, 31, 63],
+    "subsample": [0.6, 0.8, 1],
+    "subsample_freq": [1],
+    "colsample_bytree": [0.5, 0.8, 1]
+}
+
+results_cust_lgb = grid_search_log(param_grid=lgbm_param_grid_cust,
+                                   model_type=lgb.LGBMRegressor,
+                                   x_train=x_train_cust,
+                                   y_train=np.log1p(y_train_cust),
+                                   x_val=x_val_cust,
+                                   y_val=np.log1p(y_val_cust),
+                                   n_jobs=5)
+
+```
+
+As we have seen in the visualization part, we decided to take a $\log{(x + 1)}$ of customers and sales, which helped with their skewness and centered them.
+
+The performance of the $Customer$ model on the validation set is comparable to that of the Random Forests. However, LightGBM model improved hugely on the training data, perhaps suggesting that now it would have the capacity to achieve strong results regardless of the seasonal positioning of the validation period.
+
+```{python}
+#| echo: false
+results_cust_lgb = pd.read_csv("../outputs/customers_recursive_lightgbm_grid.csv")
+
+results_cust_lgb.head(4)
+```
+
+Here are the results for the sales model, which show a significant improvement all around.
+
+```{python}
+#| echo: false
+results_cust_lgb = pd.read_csv("../outputs/sales_recursive_lightgbm_grid.csv")
+
+results_cust_lgb.head(4)
+```
+
+<br>
+
+![Feature importance for the customer model](images/feature_importance_customers){#fig-importance-cust}
+
+![Feature importance for the sales model](images/feature_importance_sales){#fig-importance-sales}
+
+The final test results of our best models are shown below.
+```{python}
+customers_best_params_lgb = pd.read_csv("../outputs/customers_recursive_lightgbm_grid.csv").iloc[0, 0:6].to_dict()
+sales_best_params_lgb = pd.read_csv("../outputs/sales_recursive_lightgbm_grid.csv").iloc[0, 0:6].to_dict()
+
+for params in (customers_best_params_lgb, sales_best_params_lgb):
+    for key in params.keys():
+        if key not in ("learning_rate", "colsample_bytree", "subsample"):
+            params[key] = int(params[key])
+
+final_results_lgb = {k: [customers_best_params_lgb[k], sales_best_params_lgb[k]] for k in customers_best_params_lgb}
+final_results_lgb = pd.DataFrame(final_results_lgb)
+final_results_lgb["Test_RMSPE"] = [0.1022, 0.1235]
+final_results_lgb["Description"] = ["Customers only", "Final sales"]
+display(final_results_lgb)
+```
+
+## 3.4 Neural Networks - classic MLP
+
+Neural networks are the final type of model we applied. They differ from decision trees, be it boosting or random forests, as they usually need a GPU to be trained (compared to our previous models, which used the processor).
+
+They are also very sensitive to the scale of input features. Because of this, we had to rebuild the entire dataset again, scaling the numerical variables while also one-hot encoding the categorical features.
+
+```{python}
+dataset_nn = pd.read_pickle("../train_clean.pkl")
+dataset_nn = dataset_nn.sort_values(by=["Store", "Date"]).reset_index(drop=True)
+
+# ===== CREATING LAGS AND ROLLING MEANS =====
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    dataset_nn["SalesLag1"] = dataset_nn.groupby("Store")["Sales"].shift(1)
+    dataset_nn["SalesLag7"] = dataset_nn.groupby("Store")["Sales"].shift(7)
+    dataset_nn["RollingMean7"] = dataset_nn.groupby("Store")["Sales"].rolling(7).mean().shift(1).reset_index(level=0, drop=True)
+    first_idx_per_store = dataset_nn.groupby("Store").head(1).index
+    dataset_nn.loc[first_idx_per_store, "RollingMean7"] = float("nan")
+    dataset_nn["SalesLag1Available"] = ~dataset_nn["SalesLag1"].isna() * 1
+    dataset_nn["SalesLag7Available"] = ~dataset_nn["SalesLag7"].isna() * 1
+    dataset_nn["RollingMean7Available"] = ~dataset_nn["RollingMean7"].isna() * 1
+
+    dataset_nn.loc[:, dataset_nn.isna().sum() != 0] = dataset_nn.loc[:, dataset_nn.isna().sum() != 0].fillna(0)
+
+# ===== TRAIN, VALIDATION, TEST SPLITTING =====
+
+days_amount = (dataset_nn.Date.iloc[-1,] - dataset_nn.Date.iloc[0,])
+test_split_time = dataset_nn.Date.iloc[-1,] - pd.Timedelta(days=int(days_amount.days*0.05 - 1))
+validation_split_time = dataset_nn.Date.iloc[-1,] - pd.Timedelta(days=int(days_amount.days*0.1 + 1))
+
+train_set_nn_clean = dataset_nn[dataset_nn.Date < validation_split_time]
+validation_set_nn_clean = dataset_nn[(dataset_nn.Date >= validation_split_time) & (dataset_nn.Date < test_split_time)]
+test_set_nn_clean = dataset_nn[dataset_nn.Date >= test_split_time]
+
+embed_cols = ["Store"] 
+dummify_cols = ["StateHoliday", "StoreType", "Assortment", "DayOfWeek"] 
+# num_cols have to be scaled (standardized to mean 0 and std of 1)
+num_cols = [
+    "SalesLag1", "SalesLag7", "RollingMean7", 
+    "LogCompetitionDistance", 
+    "CompetitionMonthsTotal", 
+    "Promo2MonthsTotal",
+    "Year", "Month", "Week"
+]
+
+binary_cols = [
+    "Open", "Promo", "SchoolHoliday", "Promo2", "Promo2CurrentlyOn", "CompetitionMonthsKnown",
+    "SalesLag1Available", "SalesLag7Available", "RollingMean7Available"
+]
+
+
+
+
+
+
+# A ===== LOG TRANSFORMING =====
+train_set_nn = train_set_nn_clean.copy()
+validation_set_nn = validation_set_nn_clean.copy()
+test_set_nn = test_set_nn_clean.copy()
+
+for df_nn in (train_set_nn, validation_set_nn, test_set_nn):
+    df_nn["Sales_log"] = np.log1p(df_nn["Sales"])
+    df_nn["Customers_log"] = np.log1p(df_nn["Customers"])
+
+# B ===== ONE HOT ENCODING =====
+train_set_nn = pd.get_dummies(train_set_nn, columns=dummify_cols, dtype=float)
+validation_set_nn = pd.get_dummies(validation_set_nn, columns=dummify_cols, dtype=float)
+test_set_nn = pd.get_dummies(test_set_nn, columns=dummify_cols, dtype=float)
+
+train_cols = train_set_nn.columns
+validation_set_nn = validation_set_nn.reindex(columns=train_cols, fill_value=0)
+test_set_nn = test_set_nn.reindex(columns=train_cols, fill_value=0)
+
+new_one_hot_features = [c for c in train_set_nn.columns if any(x in c for x in dummify_cols)]
+all_binary_cols = binary_cols + new_one_hot_features
+
+# C ===== SCALING NUMERICAL VARIABLES =====
+scaler = StandardScaler()
+cols_to_scale = num_cols + ["Customers_log"]
+
+# Scale (Overwrites columns in place)
+train_set_nn[cols_to_scale] = scaler.fit_transform(train_set_nn[cols_to_scale])
+validation_set_nn[cols_to_scale] = scaler.transform(validation_set_nn[cols_to_scale])
+test_set_nn[cols_to_scale] = scaler.transform(test_set_nn[cols_to_scale])
+
+# Save scaler stats for recursion later
+cust_idx = cols_to_scale.index("Customers_log")
+cust_mean = scaler.mean_[cust_idx]
+cust_scale = scaler.scale_[cust_idx]
+
+cust_input_cols = [c for c in cols_to_scale if c != "Customers_log"] + all_binary_cols
+
+# D ===== PREPARE DICTIONARY =====
+def prepare_inputs(df):
+    X = {
+        "input_Store": df["Store"].values.astype(int),
+        "input_numerical": df[cust_input_cols].values.astype(float)
+    }
+    return X
+
+X_train = prepare_inputs(train_set_nn)
+X_val = prepare_inputs(validation_set_nn)
+X_test = prepare_inputs(test_set_nn)
+```
+
+Most of the categorical features contain only around 3-5 classes, so converting them into dummy variables does not increase dimensionality (substantially). On the other hand, the $Store$ variable contains 1115 unique store identifiers. One-hot encoding this variable would add 1115 binary columns to the data, rendering it hardly usable to any model.
+
+::: {#fig-nn-embedding fig-cap="Example of the embedding process" fig-align="center"}
+```{mermaid}
+flowchart LR
+    D((Embedding model))
+    subgraph Input[Input]
+    A(Store: 1) 
+    B(Store: 2) 
+    dd(:)
+    C(Store: 1115)
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    
+    subgraph Output[Output]
+    F("[1.24, 4.15, ..., 2.53]")
+    G("[3.14, 2.71, ..., 1.61]")
+    ddd(:)
+    H("[6.70, 6.98, ..., 4.27]")
+    end
+
+    D --> F
+    D --> G
+    D --> H
+
+    style A fill:#33628D,color:#FFF 
+    style B fill:#33628D,color:#FFF
+    style C fill:#33628D,color:#FFF
+    style dd fill:#33628D,color:#FFF
+
+    style D fill:#228C8D
+
+    style F fill:#31B57B,color:#FFF
+    style G fill:#31B57B,color:#FFF
+    style H fill:#31B57B,color:#FFF
+    style ddd fill:#31B57B,color:#FFF
+```
+:::
+
+For that reason we used embedding - the model learned the implications of the store numbers from the data, and saved them as a 10-dimensional vector. This way we reduced the dimensionality, while also preserving the original meaning of the variable.
+
+```{python}
+#| echo: true
+#| eval: false
+
+def build_embedding_model(num_numerical_features, learning_rate=0.001):
+    store_input = Input(shape=(1,), name="input_Store")
+    
+    # Shrinking 1115 dimension spaces to a different vectors in R^10
+    store_embed = Embedding(input_dim=1116, output_dim=10, name="embed_Store")(store_input)
+    store_embed = Flatten()(store_embed)
+
+    num_input = Input(shape=(num_numerical_features,), name="input_numerical")
+    merged = Concatenate()([store_embed, num_input])
+    
+    x = Dense(128, activation='relu')(merged)
+    x = Dropout(0.2)(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.2)(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.2)(x)
+
+    output = Dense(1)(x)
+    
+    model = Model(inputs=[store_input, num_input], outputs=output)
+    model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
+    
+    return model
+
+
+num_feats_cust = X_train['input_numerical'].shape[1]
+model_cust = build_embedding_model(num_numerical_features=num_feats_cust)
+
+y_train_cust = train_set_nn['Customers_log'].values
+y_val_cust = validation_set_nn['Customers_log'].values
+
+callbacks_list = [
+    EarlyStopping(
+        monitor='val_loss', 
+        patience=3, 
+        restore_best_weights=True,
+        verbose=1
+    )
+]
+
+
+y_train_cust = np.log1p(train_set['Customers'].values)
+y_val_cust   = np.log1p(validation_set['Customers'].values)
+
+history_cust = model_cust.fit(
+    X_train, y_train_cust,
+    validation_data=(X_val, y_val_cust),
+    epochs=50, 
+    batch_size=512,
+    callbacks=callbacks_list,
+    verbose=1
+)
+
+pred_cust_log = model_cust.predict(X_test, verbose=0).flatten()
+
+pred_cust_real = np.expm1(pred_cust_log)
+pred_cust_real = np.maximum(pred_cust_real, 0)
+
+is_open = test_set['Open'].values
+sample_preds = pred_cust_real[is_open == 1]
+```
+
+```{python}
+
+```
+
+## 3.5 Results
